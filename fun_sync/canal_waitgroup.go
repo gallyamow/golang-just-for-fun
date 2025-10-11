@@ -10,8 +10,10 @@ type CanalWaitGroup struct {
 }
 
 func NewCanalWaitGroup() *CanalWaitGroup {
+	ch := make(chan struct{})
+	close(ch)
 	return &CanalWaitGroup{
-		ch: make(chan struct{}),
+		ch: ch,
 	}
 }
 
