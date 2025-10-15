@@ -1,11 +1,11 @@
-package fun_sync
+package funsync
 
 import (
 	"runtime"
 	"sync/atomic"
 )
 
-// Just for fun Mutex на atomic + spin lock
+// AtomicSpinMutex на atomic + spin lock
 type AtomicSpinMutex struct {
 	flag int32
 }

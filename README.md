@@ -1,3 +1,9 @@
+### Golang just for fun
+
+* `funsync` - alternative implementations of some `sync` primitives
+* `patterns` - implementations of some golang pattern
+* `funstrings` - alternative implementations of some functionality from `strings`
+
 ### Tests
 
 ```sh

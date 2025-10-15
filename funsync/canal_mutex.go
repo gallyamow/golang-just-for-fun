@@ -1,6 +1,6 @@
-package fun_sync
+package funsync
 
-// Just for fun Mutex на канале
+// CanalMutex mutex на канале
 type CanalMutex struct {
 	flag chan struct{}
 }

@@ -1,4 +1,4 @@
-package fun_sync
+package funsync
 
 import (
 	"fmt"

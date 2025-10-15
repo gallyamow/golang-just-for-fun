@@ -1,8 +1,8 @@
-package fun_sync
+package funsync
 
 import "sync"
 
-// Just for fun WaitGroup на канале + mutex
+// CanalWaitGroup WaitGroup на канале + mutex
 type CanalWaitGroup struct {
 	n  int
 	ch chan struct{}
@@ -22,7 +22,7 @@ func (wg *CanalWaitGroup) Add(n int) {
 	wg.n += n
 
 	if wg.n > 0 {
-		// создаем новый канал с проверкой что канал закрыт
+		// создаем новый канал с проверкой, что канал закрыт
 		select {
 		case <-wg.ch:
 			wg.ch = make(chan struct{})
