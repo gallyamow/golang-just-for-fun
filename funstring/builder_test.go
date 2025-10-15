@@ -1,6 +1,7 @@
 package funstring
 
 import (
+	"strings"
 	"testing"
 	"unicode/utf8"
 )
@@ -135,4 +136,30 @@ func TestBuilder(t *testing.T) {
 			t.Errorf("Combined operations = %q, want %q", got, want)
 		}
 	})
+}
+
+func BenchmarkFunBuilder(b *testing.B) {
+	sb := &Builder{}
+
+	for b.Loop() {
+		sb.WriteByte('L')
+		sb.WriteByte('A')
+		sb.Write([]byte{'L', 'A', 'L', 'A'})
+		sb.WriteString("Lingua latina non penis canina")
+		sb.WriteRune('링')
+		_ = sb.String()
+	}
+}
+
+func BenchmarkStandardBuilder(b *testing.B) {
+	var sb strings.Builder
+
+	for b.Loop() {
+		sb.WriteByte('L')
+		sb.WriteByte('A')
+		sb.Write([]byte{'L', 'A', 'L', 'A'})
+		sb.WriteString("Lingua latina non penis canina")
+		sb.WriteRune('링')
+		_ = sb.String()
+	}
 }
