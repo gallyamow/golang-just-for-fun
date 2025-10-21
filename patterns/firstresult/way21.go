@@ -26,7 +26,9 @@ func Way21(ctx context.Context, addresses []string, key string, getter Getter) (
 
 			val, err := getter(ctx, addr, key)
 
-			// default тут нельзя, потому что можно пропустить какой-то successful результат, если канал в этот момент полон.
+			// Важно, что нет default, поэтому если канал заполнен, goroutine ждёт, пока освободится место.
+			// Это гарантирует, что все результаты, включая успешные, будут переданы через канал, даже если канал временно заполнен.
+			// Т.е. default тут нельзя, потому что можно пропустить какой-то successful результат, если канал в этот момент полон.
 			// В way11 он нужен, чтобы не блокировать лишний раз + там нет ошибок и любой ответ ожидаемый.
 			select {
 			case <-ctx.Done():
@@ -43,7 +45,8 @@ func Way21(ctx context.Context, addresses []string, key string, getter Getter) (
 		res := <-resCh
 		if res.err == nil {
 			// первый успешный результат
-			// defer отменит остальные
+			// defer отменит остальные которые еще не начали писать, а начавшие писать не будут блокироваться, потому что
+			// они в case, а не в case hanlder.
 			return res.val, nil
 		}
 		lastErr = res.err
