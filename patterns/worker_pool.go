@@ -1,4 +1,4 @@
-package patterns
+package main
 
 import (
 	"fmt"
@@ -78,4 +78,8 @@ func WorkerPoolTest() {
 
 func handleJob(workerId int, job int) string {
 	return fmt.Sprintf("Done %d task by worker %d", job, workerId)
+}
+
+func main() {
+	WorkerPoolTest()
 }

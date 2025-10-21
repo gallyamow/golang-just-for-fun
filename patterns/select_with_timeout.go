@@ -1,4 +1,4 @@
-package patterns
+package main
 
 import (
 	"context"
@@ -107,4 +107,8 @@ func SelectWithTimeout() {
 	}
 
 	fmt.Println("finished")
+}
+
+func main() {
+	SelectWithTimeout()
 }

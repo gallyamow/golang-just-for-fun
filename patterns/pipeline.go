@@ -1,4 +1,4 @@
-package patterns
+package main
 
 import (
 	"fmt"
@@ -48,4 +48,8 @@ func PipelineTest() {
 	print(multiply(gen(10)))
 
 	fmt.Println("finished")
+}
+
+func main() {
+	PipelineTest()
 }

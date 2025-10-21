@@ -1,4 +1,4 @@
-package patterns
+package main
 
 import (
 	"fmt"
@@ -49,4 +49,8 @@ func RateLimitTest() {
 	}
 
 	fmt.Println("finished")
+}
+
+func main() {
+	RateLimitTest()
 }

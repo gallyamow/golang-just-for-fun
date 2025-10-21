@@ -1,4 +1,4 @@
-package patterns
+package main
 
 import (
 	"fmt"
@@ -60,4 +60,8 @@ func FanInTest() {
 	}
 
 	fmt.Println("finished")
+}
+
+func main() {
+	FanInTest()
 }

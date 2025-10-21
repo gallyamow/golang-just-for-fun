@@ -1,4 +1,4 @@
-package patterns
+package main
 
 import "fmt"
 
@@ -70,4 +70,8 @@ func FanOutTest() {
 	// ждем завершения (обязательно 2 раза)
 	<-done
 	<-done
+}
+
+func main() {
+	FanOutTest()
 }
