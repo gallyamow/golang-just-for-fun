@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-func TestCanalWaitGroup(t *testing.T) {
-	wg := NewCanalWaitGroup()
+func TestChannelWaitGroup(t *testing.T) {
+	wg := NewChannelWaitGroup()
 
 	for range 5 {
 		wg.Add(1)
@@ -25,8 +25,8 @@ func TestCanalWaitGroup(t *testing.T) {
 	fmt.Printf("finished after %v", time.Since(now))
 }
 
-func TestCanalWaitGroup_Basic(t *testing.T) {
-	wg := NewCanalWaitGroup()
+func TestChannelWaitGroup_Basic(t *testing.T) {
+	wg := NewChannelWaitGroup()
 
 	wg.Add(2)
 
@@ -74,8 +74,8 @@ func TestCanalWaitGroup_Basic(t *testing.T) {
 }
 
 // Wait без Add не должен блокироваться
-func TestCanalWaitGroup_ZeroWait(t *testing.T) {
-	wg := NewCanalWaitGroup()
+func TestChannelWaitGroup_ZeroWait(t *testing.T) {
+	wg := NewChannelWaitGroup()
 
 	done := make(chan bool)
 
@@ -92,8 +92,8 @@ func TestCanalWaitGroup_ZeroWait(t *testing.T) {
 	}
 }
 
-func TestCanalWaitGroup_Reuse(t *testing.T) {
-	wg := NewCanalWaitGroup()
+func TestChannelWaitGroup_Reuse(t *testing.T) {
+	wg := NewChannelWaitGroup()
 
 	// Первое использование
 	wg.Add(1)
@@ -129,8 +129,8 @@ func TestCanalWaitGroup_Reuse(t *testing.T) {
 	}
 }
 
-func TestCanalWaitGroup_ConcurrentAccess(t *testing.T) {
-	wg := NewCanalWaitGroup()
+func TestChannelWaitGroup_ConcurrentAccess(t *testing.T) {
+	wg := NewChannelWaitGroup()
 	const goroutines = 10
 
 	wg.Add(goroutines)
@@ -161,8 +161,8 @@ func TestCanalWaitGroup_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestCanalWaitGroup_NegativeAdd(t *testing.T) {
-	wg := NewCanalWaitGroup()
+func TestChannelWaitGroup_NegativeAdd(t *testing.T) {
+	wg := NewChannelWaitGroup()
 
 	// Добавляем отрицательное значение
 	wg.Add(-2)
@@ -183,8 +183,8 @@ func TestCanalWaitGroup_NegativeAdd(t *testing.T) {
 	}
 }
 
-func TestCanalWaitGroup_MultipleWaiters(t *testing.T) {
-	wg := NewCanalWaitGroup()
+func TestChannelWaitGroup_MultipleWaiters(t *testing.T) {
+	wg := NewChannelWaitGroup()
 	wg.Add(1)
 
 	waitersCompleted := 0
@@ -218,8 +218,8 @@ func TestCanalWaitGroup_MultipleWaiters(t *testing.T) {
 	mu.Unlock()
 }
 
-func BenchmarkCanalWaitGroup(b *testing.B) {
-	wg := NewCanalWaitGroup()
+func BenchmarkChannelWaitGroup(b *testing.B) {
+	wg := NewChannelWaitGroup()
 
 	for b.Loop() {
 		wg.Add(1)

@@ -201,7 +201,7 @@ func TestFanIn(t *testing.T) {
 		select {
 		case _, ok := <-outputCh:
 			if ok {
-				t.Errorf("canal is not closed")
+				t.Errorf("channel is not closed")
 			}
 		case <-time.After(1000 * time.Millisecond):
 			t.Errorf("closing waiting timeout exceeded")

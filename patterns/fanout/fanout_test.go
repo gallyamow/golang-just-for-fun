@@ -77,14 +77,14 @@ func TestFanOut(t *testing.T) {
 		case <-outputCh1:
 			t.Errorf("got value after cancel")
 		case <-time.After(1000 * time.Millisecond):
-			t.Log("canal is not closed")
+			t.Log("channel is not closed")
 		}
 
 		select {
 		case <-outputCh1:
 			t.Errorf("got value after cancel")
 		case <-time.After(1000 * time.Millisecond):
-			t.Log("canal is not closed")
+			t.Log("channel is not closed")
 		}
 	})
 }

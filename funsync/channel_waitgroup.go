@@ -2,22 +2,22 @@ package funsync
 
 import "sync"
 
-// CanalWaitGroup WaitGroup на канале + mutex
-type CanalWaitGroup struct {
+// ChannelWaitGroup WaitGroup на канале + mutex
+type ChannelWaitGroup struct {
 	n  int
 	ch chan struct{}
 	mu sync.Mutex
 }
 
-func NewCanalWaitGroup() *CanalWaitGroup {
+func NewChannelWaitGroup() *ChannelWaitGroup {
 	ch := make(chan struct{})
 	close(ch)
-	return &CanalWaitGroup{
+	return &ChannelWaitGroup{
 		ch: ch,
 	}
 }
 
-func (wg *CanalWaitGroup) Add(n int) {
+func (wg *ChannelWaitGroup) Add(n int) {
 	wg.mu.Lock()
 	wg.n += n
 
@@ -34,7 +34,7 @@ func (wg *CanalWaitGroup) Add(n int) {
 	wg.mu.Unlock()
 }
 
-func (wg *CanalWaitGroup) Done() {
+func (wg *ChannelWaitGroup) Done() {
 	wg.mu.Lock()
 	if wg.n > 0 {
 		wg.n--
@@ -49,6 +49,6 @@ func (wg *CanalWaitGroup) Done() {
 	wg.mu.Unlock()
 }
 
-func (wg *CanalWaitGroup) Wait() {
+func (wg *ChannelWaitGroup) Wait() {
 	<-wg.ch
 }

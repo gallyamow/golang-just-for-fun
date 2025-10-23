@@ -1,12 +1,9 @@
 iterator
 SyncOnce
-TokenBucket
-LeakyBucket
 PubSub
 CircuitBreaker
 SemaphorePattern
-CanalWaitGroup
-
+rate limited: TokenBucket,ConcurrencyLimiter,LeakyBucket
 // errgroup — это пакет (golang.org/x/sync/errgroup), который предоставляет средства для синхронизации группы горутин и
 // централизованной обработки ошибок между ними.
 // Он решает распространенную задачу: запустить несколько параллельных операций, дождаться их завершения и,
