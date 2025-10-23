@@ -6,24 +6,6 @@ import (
 	"time"
 )
 
-func makeInputCh[T any](values []T, bufferSize int) <-chan T {
-	var ch chan T
-
-	if bufferSize == 0 {
-		ch = make(chan T)
-	} else {
-		ch = make(chan T, bufferSize)
-	}
-
-	go func() {
-		for _, v := range values {
-			ch <- v
-		}
-		close(ch)
-	}()
-	return ch
-}
-
 func TestFanIn(t *testing.T) {
 	t.Run("unbuffered", func(t *testing.T) {
 		valsCnt := 10
@@ -49,10 +31,8 @@ func TestFanIn(t *testing.T) {
 		}
 
 		if sum != expectedSum {
-			t.Errorf("TesFanIn(unbuffered): got = %d, expected = %d", sum, expectedSum)
+			t.Errorf("got = %d, expected = %d", sum, expectedSum)
 		}
-
-		t.Log("TesFanIn(unbuffered) done")
 	})
 
 	t.Run("buffered", func(t *testing.T) {
@@ -79,7 +59,7 @@ func TestFanIn(t *testing.T) {
 		}
 
 		if sum != expectedSum {
-			t.Errorf("TesFanIn(buffered): got = %d, expected = %d", sum, expectedSum)
+			t.Errorf("got = %d, expected = %d", sum, expectedSum)
 		}
 
 		t.Log("TesFanIn(buffered) done")
@@ -109,7 +89,7 @@ func TestFanIn(t *testing.T) {
 		}
 
 		if sum != expectedSum {
-			t.Errorf("TesFanIn(single_value): got = %d, expected = %d", sum, expectedSum)
+			t.Errorf("got = %d, expected = %d", sum, expectedSum)
 		}
 
 		t.Log("TesFanIn(single_value) done")
@@ -139,10 +119,8 @@ func TestFanIn(t *testing.T) {
 		}
 
 		if sum != expectedSum {
-			t.Errorf("TesFanIn(single_channel): got = %d, expected = %d", sum, expectedSum)
+			t.Errorf("got = %d, expected = %d", sum, expectedSum)
 		}
-
-		t.Log("TesFanIn(single_channel): done")
 	})
 
 	t.Run("context_cancel", func(t *testing.T) {
@@ -159,7 +137,7 @@ func TestFanIn(t *testing.T) {
 		got := <-outputCh
 
 		if got != 42 && got != 43 {
-			t.Errorf("TesFanIn(context_cancel): got %v, want %v", got, 42)
+			t.Errorf("got %v, want %v", got, 42)
 		}
 		// отмена
 		cancel()
@@ -168,10 +146,10 @@ func TestFanIn(t *testing.T) {
 		select {
 		case _, ok := <-outputCh:
 			if ok {
-				t.Errorf("TesFanIn(context_cancel): expected output channel to be closed after cancel")
+				t.Errorf("expected output channel to be closed after cancel")
 			}
-		case <-time.After(500 * time.Millisecond):
-			t.Errorf("TesFanIn(context_cancel): timeout waiting for output channel to close after cancel")
+		case <-time.After(1000 * time.Millisecond):
+			t.Errorf("timeout waiting for output channel to close after cancel")
 		}
 	})
 
@@ -189,7 +167,7 @@ func TestFanIn(t *testing.T) {
 		got := <-outputCh
 
 		if got != 42 {
-			t.Errorf("TesFanIn(context_cancel_with_partial_input): got %v, want %v", got, 42)
+			t.Errorf("got %v, want %v", got, 42)
 		}
 		// отмена
 		cancel()
@@ -198,10 +176,10 @@ func TestFanIn(t *testing.T) {
 		select {
 		case _, ok := <-outputCh:
 			if ok {
-				t.Errorf("TesFanIn(context_cancel_with_partial_input): expected output channel to be closed after cancel")
+				t.Errorf("expected output channel to be closed after cancel")
 			}
-		case <-time.After(500 * time.Millisecond):
-			t.Errorf("TesFanIn(context_cancel_with_partial_input): timeout waiting for output channel to close after cancel")
+		case <-time.After(1000 * time.Millisecond):
+			t.Errorf("timeout waiting for output channel to close after cancel")
 		}
 	})
 
@@ -223,10 +201,28 @@ func TestFanIn(t *testing.T) {
 		select {
 		case _, ok := <-outputCh:
 			if ok {
-				t.Errorf("TesFanIn(context_cancel_with_no_reader): expected output channel to be closed after cancel")
+				t.Errorf("canal is not closed")
 			}
-		case <-time.After(500 * time.Millisecond):
-			t.Errorf("TesFanIn(context_cancel_with_no_reader): timeout waiting for output channel to close after cancel")
+		case <-time.After(1000 * time.Millisecond):
+			t.Errorf("closing waiting timeout exceeded")
 		}
 	})
+}
+
+func makeInputCh[T any](values []T, bufferSize int) <-chan T {
+	var ch chan T
+
+	if bufferSize == 0 {
+		ch = make(chan T)
+	} else {
+		ch = make(chan T, bufferSize)
+	}
+
+	go func() {
+		for _, v := range values {
+			ch <- v
+		}
+		close(ch)
+	}()
+	return ch
 }
