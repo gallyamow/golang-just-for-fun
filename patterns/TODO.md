@@ -10,3 +10,4 @@ rate limited: TokenBucket,ConcurrencyLimiter,LeakyBucket
 // если хотя бы одна из них вернет ошибку, немедленно отменить остальные и вернуть первую возникшую ошибку.
 // Это альтернатива WaitGroup в этом кейсе.
 errgroup
+take latest / last value
