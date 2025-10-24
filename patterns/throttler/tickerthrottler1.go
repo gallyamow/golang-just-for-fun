@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-// TickerThrottler - работает на основе ticker.
+// TickerThrottler1 - работает на основе ticker.
 // @idiomatic defer ordering
-func TickerThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Duration) <-chan T {
+func TickerThrottler1[T any](ctx context.Context, inputCh <-chan T, limit time.Duration) <-chan T {
 	outputCh := make(chan T)
 
 	// Выдает в канал ticker.C данные раз в limit времени.

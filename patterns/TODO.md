@@ -11,3 +11,9 @@ rate limited: TokenBucket,ConcurrencyLimiter,LeakyBucket
 // Это альтернатива WaitGroup в этом кейсе.
 errgroup
 take latest / last value
+sync.Pool
+interface _
+init funct
+Debounce call func
+Throttled call func
+working with time.*

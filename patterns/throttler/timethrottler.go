@@ -5,12 +5,15 @@ import (
 	"time"
 )
 
-// TimeThrottler - работает на основе анализа времени помследней отправки.
+// TimeThrottler - работает на основе анализа времени последней отправки.
 // @idiomatic simplest channel throttler
 // @idiomatic if statement with a short variable declaration
 // @idiomatic waiting periods (time.After)
+// TODO: что делать с слишком частой отправкой?
 func TimeThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Duration) <-chan T {
 	outputCh := make(chan T)
+
+	// zero value = 0001-01-01 00:00:00 +0000 UTC
 	var lastSent time.Time
 
 	go func() {
@@ -42,6 +45,7 @@ func TimeThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Dura
 				case <-ctx.Done():
 					return
 				case outputCh <- val:
+					lastSent = time.Now()
 				}
 			}
 		}
