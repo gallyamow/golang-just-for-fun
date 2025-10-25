@@ -9,11 +9,9 @@ import (
 // @idiomatic simplest channel throttler
 // @idiomatic if statement with a short variable declaration
 // @idiomatic waiting periods (time.After)
-// TODO: что делать с слишком частой отправкой?
 func TimeThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Duration) <-chan T {
 	outputCh := make(chan T)
 
-	// zero value = 0001-01-01 00:00:00 +0000 UTC
 	var lastSent time.Time
 
 	go func() {
@@ -28,11 +26,13 @@ func TimeThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Dura
 					return
 				}
 
-				// Ждем только нужное время
+				// Ждем только нужное время (с реакцией на контекст), можно:
 				if since := time.Since(lastSent); since < limit {
-					// Можно было бы использовать и sleep, но у него минусы: нет реакции на контекст и накопление сдвига.
+					// 1) sleep, но у него минусы: нет реакции на контекст и накопление сдвига.
 					// time.Sleep(limit - since)
-					// Ждем с реакцией на контекст.
+					// 2) Использовать таймер time.After, но каждое его использование создает новый таймер и затрудняет работу GC.
+					// А stop мы не вызываем.
+					// 3) Сделать отдельный timer и вызывать stop через defer
 					select {
 					case <-ctx.Done():
 						return
@@ -40,12 +40,14 @@ func TimeThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Dura
 					}
 				}
 
-				// Запись осуществляем также с реакцией на контекст.
+				// Запись осуществляем в неблокирующем режиме, таким образом можем пропускать значения.
 				select {
+				// также с реакцией на контекст
 				case <-ctx.Done():
 					return
 				case outputCh <- val:
 					lastSent = time.Now()
+				default:
 				}
 			}
 		}

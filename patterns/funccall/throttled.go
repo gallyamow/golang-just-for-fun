@@ -23,7 +23,7 @@ func Throttled(f func(), interval time.Duration) func() {
 		mu.Lock()
 		defer mu.Unlock()
 
-		// В случае первого вызова у нас в lastCall хранится zero value (1979-01-01 00:00:00 +0000 UTC), поэтому сработает сразу.
+		// В случае первого вызова у нас в lastCall хранится zero value 0001-01-01 00:00:00 +0000, поэтому сработает сразу.
 		if time.Since(lastCall) > interval {
 			lastCall = time.Now()
 			go f()
