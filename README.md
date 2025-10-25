@@ -1,8 +1,7 @@
-### Golang just for fun
+### Golang idioms & patterns
 
-* `funsync` - alternative implementations of some `sync` primitives
-* `patterns` - implementations of some golang pattern
-* `funstrings` - alternative implementations of some functionality from `strings`
+* `fun/` - alternative implementations of some `sync` primitives
+* `patterns/` - implementations of some golang pattern
 
 ### Tests
 
