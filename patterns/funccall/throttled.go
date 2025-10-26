@@ -10,13 +10,15 @@ import (
 // Пример: отправка событий мыши, где требуется просто пореже их отправлять.
 //
 // Требования:
-//   - первый вызов должен быть успешный сразу (Leading Edge)
+//   - первый вызов должен быть успешный сразу
 //   - множественные вызовы в пределах interval: неуспешные все
 //   - работа в concurrent-среде
 //
 // @idiomatic go f()
 func Throttled(f func(), interval time.Duration) func() {
 	var mu sync.Mutex
+
+	// благодаря zero-time выполняется требование Leading Edge
 	var lastCall time.Time
 
 	return func() {

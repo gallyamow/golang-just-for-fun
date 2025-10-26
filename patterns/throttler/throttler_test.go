@@ -2,51 +2,30 @@ package throttler
 
 import (
 	"context"
-	"fmt"
+	"slices"
 	"testing"
 	"time"
 )
 
-func TestTickerThrottler1(t *testing.T) {
-	t.Run("context_cancel", func(t *testing.T) {
+func TestTickerThrottler(t *testing.T) {
+	t.Run("single_value", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		throttlingPeriod := 100
-		throttlingDelta := 0.1
+		inputCh := make(chan int)
+		outputCh := TickerThrottler(ctx, inputCh, 50*time.Millisecond)
 
-		inputCh := makeInputCh(100, []int{1, 2, 3}, 10*time.Millisecond, 10)
-		outputCh := TickerThrottler1(ctx, inputCh, time.Duration(throttlingPeriod)*time.Millisecond)
+		checkSingleValue(t, inputCh, outputCh, 50)
+	})
 
-		lastReceived := new(time.Time)
+	t.Run("check_frequency", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
 
-		for range outputCh {
-			if lastReceived != nil {
-				since := time.Since(*lastReceived)
+		inputCh := make(chan int)
+		outputCh := TickerThrottler(ctx, inputCh, 50*time.Millisecond)
 
-				// Интересный момент: первая строка - проходит компиляцию, вторая нет. Дело в том что:
-				// - throttlingPeriod неявно рассматривается как untyped constant, то компилятор может сделать неявное
-				//   преобразование для некоторых констант если результат можно точно представить как float64.
-				//   Для 0.9 компилятор считает, что результат константного выражения подходит.
-				//   Для 1.1 иногда возникает ошибка переполнения или неоднозначности типа, и компилятор ругается.
-				//   Для 1.2 тоже подходит
-				//x := (100 * 0.9) * time.Second
-				//y := (100 * 1.1) * time.Second
-				//z := (100 * 1.2) * time.Second
-				minVal := time.Duration(float64(throttlingPeriod) * (1 - throttlingDelta))
-				maxVal := time.Duration(float64(throttlingPeriod) * (1 + throttlingDelta))
-
-				fmt.Printf("%f", 1e38)
-
-				if since < minVal {
-					t.Errorf("received too often %v", since)
-				} else if since > maxVal {
-					t.Errorf("received too rarely %v", since)
-				}
-			}
-			*lastReceived = time.Now()
-		}
-
+		checkFrequency(t, inputCh, outputCh, 50)
 	})
 
 	t.Run("context_cancel", func(t *testing.T) {
@@ -54,43 +33,156 @@ func TestTickerThrottler1(t *testing.T) {
 		defer cancel()
 
 		inputCh := make(chan int)
-		outputCh := TickerThrottler1(ctx, inputCh, 100*time.Millisecond)
+		outputCh := TickerThrottler(ctx, inputCh, 50*time.Millisecond)
 
-		// первое удается записать и без читателя потому что читает в buffer(1)
-		inputCh <- 1
-
-		cancel()
-
-		// Ждем закрытия outputCh в течение секунды
-		select {
-		case _, ok := <-outputCh:
-			if ok {
-				t.Errorf("channel is not closed")
-			}
-		case <-time.After(1000 * time.Millisecond):
-			t.Errorf("closing waiting timeout exceeded")
-		}
+		checkCancellation(t, inputCh, outputCh, 50, cancel)
 	})
 }
 
-func makeInputCh[T any](iterations int, values []T, sleep time.Duration, bufferSize int) <-chan T {
-	var ch chan T
+func TestTimeThrottler(t *testing.T) {
+	t.Run("single_value", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
 
-	if bufferSize == 0 {
-		ch = make(chan T)
-	} else {
-		ch = make(chan T, bufferSize)
-	}
+		inputCh := make(chan int)
+		outputCh := TimeThrottler(ctx, inputCh, 50*time.Millisecond)
 
+		checkSingleValue(t, inputCh, outputCh, 50)
+	})
+
+	t.Run("check_frequency", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		inputCh := make(chan int)
+		outputCh := TimeThrottler(ctx, inputCh, 50*time.Millisecond)
+
+		checkFrequency(t, inputCh, outputCh, 50)
+	})
+
+	t.Run("context_cancel", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		inputCh := make(chan int)
+		outputCh := TimeThrottler(ctx, inputCh, 50*time.Millisecond)
+
+		checkCancellation(t, inputCh, outputCh, 50, cancel)
+	})
+}
+
+func checkSingleValue(t *testing.T, inputCh chan int, outputCh <-chan int, period int) {
 	go func() {
-		for range iterations {
-			for _, v := range values {
-				ch <- v
-				time.Sleep(sleep)
-			}
-		}
-		close(ch)
+		inputCh <- 1
 	}()
 
-	return ch
+	<-outputCh
+
+	select {
+	case val, ok := <-outputCh:
+		if !ok {
+			t.Errorf("outputCh closed before inputCh")
+		}
+		t.Errorf("got value %d when no input value passed", val)
+	case <-time.After(time.Duration(period*3) * time.Millisecond):
+		t.Log("expected")
+	}
+}
+
+func checkCancellation(t *testing.T, inputCh chan int, outputCh <-chan int, period int, cancel context.CancelFunc) {
+	go func() {
+		// должен отправить первое значение
+		inputCh <- 1
+
+		// ждем
+		time.Sleep(time.Duration(period) * time.Millisecond)
+		inputCh <- 2
+
+		cancel()
+
+		time.Sleep(time.Duration(period) * time.Millisecond)
+		inputCh <- 3
+
+		close(inputCh)
+	}()
+
+	<-outputCh
+	<-outputCh
+
+	select {
+	case val, ok := <-outputCh:
+		if ok {
+			t.Errorf("got value %d after cancelation, output is not closed", val)
+		}
+	case <-time.After(time.Duration(period*3) * time.Millisecond):
+		t.Log("expected")
+	}
+}
+
+func checkFrequency(t *testing.T, inputCh chan int, outputCh <-chan int, period int) {
+	delta := 0.1
+
+	// Интересный момент: первая строка - проходит компиляцию, вторая нет. Дело в том что:
+	// - неявно рассматривается как untyped constant, то компилятор может сделать неявное
+	//   преобразование для некоторых констант если результат можно точно представить как float64.
+	//   Для 0.9 компилятор считает, что результат константного выражения подходит.
+	//   Для 1.1 иногда возникает ошибка переполнения или неоднозначности типа, и компилятор ругается.
+	//   Для 1.2 тоже подходит
+	//x := (100 * 0.9) * time.Second
+	//y := (100 * 1.1) * time.Second
+	//z := (100 * 1.2) * time.Second
+	minVal := time.Duration(float64(period)*(1-delta)) * time.Millisecond
+	maxVal := time.Duration(float64(period)*(1+delta)) * time.Millisecond
+
+	var lastReceived *time.Time
+
+	go func() {
+		// должен отправить первое значение
+		inputCh <- 1
+
+		// fast calls - ignored
+		inputCh <- 500
+		inputCh <- 501
+
+		// ждем
+		time.Sleep(time.Duration(period) * time.Millisecond)
+		inputCh <- 2
+
+		inputCh <- 500
+		inputCh <- 501
+		inputCh <- 502
+
+		time.Sleep(time.Duration(period) * time.Millisecond)
+		inputCh <- 3
+
+		close(inputCh)
+	}()
+
+	var received []int
+	for v := range outputCh {
+		received = append(received, v)
+
+		if lastReceived == nil {
+			now := time.Now()
+			lastReceived = &now
+			t.Logf("received %v at once as first value", v)
+		} else {
+			since := time.Since(*lastReceived)
+
+			if since < minVal {
+				t.Errorf("received %v too early %v", v, since)
+			} else if since > maxVal {
+				t.Errorf("received %v too late %v", v, since)
+			} else {
+				t.Logf("received %v in time %v", v, since)
+			}
+		}
+
+		*lastReceived = time.Now()
+	}
+
+	want := []int{1, 2, 3}
+	if !slices.Equal(received, want) {
+		t.Errorf("got %v, want %v", received, want)
+	}
 }

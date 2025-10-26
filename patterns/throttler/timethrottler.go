@@ -12,7 +12,9 @@ import (
 func TimeThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Duration) <-chan T {
 	outputCh := make(chan T)
 
+	// благодаря zero-time выполняется требование Leading Edge
 	var lastSent time.Time
+	var lastVal *T
 
 	go func() {
 		defer close(outputCh)
@@ -26,28 +28,21 @@ func TimeThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Dura
 					return
 				}
 
-				// Ждем только нужное время (с реакцией на контекст), можно:
-				if since := time.Since(lastSent); since < limit {
-					// 1) sleep, но у него минусы: нет реакции на контекст и накопление сдвига.
-					// time.Sleep(limit - since)
-					// 2) Использовать таймер time.After, но каждое его использование создает новый таймер и затрудняет работу GC.
-					// А stop мы не вызываем.
-					// 3) Сделать отдельный timer и вызывать stop через defer
-					select {
-					case <-ctx.Done():
-						return
-					case <-time.After(limit - since):
-					}
+				if lastVal == nil {
+					lastVal = &val
+				} else {
+					*lastVal = val
 				}
 
-				// Запись осуществляем в неблокирующем режиме, таким образом можем пропускать значения.
-				select {
-				// также с реакцией на контекст
-				case <-ctx.Done():
-					return
-				case outputCh <- val:
-					lastSent = time.Now()
-				default:
+				if since := time.Since(lastSent); since >= limit {
+					select {
+					// Запись так же с реакцией на контекст
+					case <-ctx.Done():
+						return
+					case outputCh <- *lastVal:
+						lastSent = time.Now()
+						lastVal = nil
+					}
 				}
 			}
 		}

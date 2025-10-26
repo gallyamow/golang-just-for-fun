@@ -5,10 +5,9 @@ import (
 	"time"
 )
 
-// TickerThrottler2 - работает на основе ticker.
-// TODO: ломает порядок?? не выдерживает интервал
+// TickerThrottler - работает на основе ticker.
 // @idiomatic defer ordering
-func TickerThrottler2[T any](ctx context.Context, inputCh <-chan T, limit time.Duration) <-chan T {
+func TickerThrottler[T any](ctx context.Context, inputCh <-chan T, limit time.Duration) <-chan T {
 	outputCh := make(chan T)
 
 	// Выдает в канал ticker.C данные раз в limit времени.
@@ -21,9 +20,10 @@ func TickerThrottler2[T any](ctx context.Context, inputCh <-chan T, limit time.D
 	// Дело в том что если goroutine долго не читает из ticker.C, и потом начинает читать, она может получить тик сразу — потому что буфер уже содержит одно «накопленное» значение.
 	ticker := time.NewTicker(limit)
 
-	// Эта переменная используется для временного хранения запланированного на отправку значения. Специально используется
-	// указатель чтобы можно было сравнивать отсутствием значения (т.е. nil) и иметь возможность занулять после отправки.
-	var buffer *T
+	// Здесь используем именно указатель, так как нам отправленные значения "забывать", чтобы не отправить старое значение
+	// при втором срабатывании ticker.
+	var lastVal *T
+	var first = true
 
 	go func() {
 		// Порядок важен: Будет выполняться с последнего до первого (так как стек LIFO).
@@ -39,43 +39,55 @@ func TickerThrottler2[T any](ctx context.Context, inputCh <-chan T, limit time.D
 		// Вместо ticker можно и sleep(limit).
 		// У sleep накапливается сдвиг, так как в него попадает время обработки других инструкций.
 		for {
-			select {
-			case <-ctx.Done():
-				return
-			case val, ok := <-inputCh:
-				if !ok {
+			// если первый вызов - то пишем результат сразу
+			if first {
+				select {
+				case <-ctx.Done():
 					return
+				case val, ok := <-inputCh:
+					if !ok {
+						return
+					}
+
+					select {
+					case <-ctx.Done():
+						return
+					case outputCh <- val:
+						first = false
+					}
+				}
+			} else {
+				// Если вызов второй и далее - обновляем последнее lastVal значение.
+				select {
+				case <-ctx.Done():
+					return
+				case val, ok := <-inputCh:
+					if !ok {
+						return
+					}
+
+					if lastVal == nil {
+						lastVal = &val
+					} else {
+						*lastVal = val
+					}
 				}
 
-				// Может терять значения, если и inputCh и ticker сигналят и 2 раза выберется inputCh.
-				// Поэтому сначала отправляем уже накопленное.
-				// TODO: но теперь может 2 раза отправить без соблюдения интервала
-				// TODO: что делать с слишком частой отправкой?
-				if buffer != nil {
+				// Если тик уже был при ожидании, то он сработает сразу
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					// Если значение есть - то отправляем
 					// Запись осуществляем также с проверкой контекста.
 					select {
 					case <-ctx.Done():
 						return
-					case outputCh <- *buffer:
-						buffer = nil
+					case outputCh <- *lastVal:
+						lastVal = nil
 					}
-				}
-
-				buffer = &val
-			// Специально вынесли сюда, чтобы было реагирование на отмену через контекст при ожидании тика и отсутствии данных в input.
-			// Но есть проблема:
-			//  - Если сразу будут данные в ticker и в input, то будет осуществлен random выбор. Таким образом может
-			//    сработать отправка 2 раза подряд.
-			// Решение будет записывать val в переменную и отправлять его после тика.
-			case <-ticker.C:
-				if buffer != nil {
-					// Запись осуществляем также с проверкой контекста.
-					select {
-					case <-ctx.Done():
-						return
-					case outputCh <- *buffer:
-						buffer = nil
-					}
+				default:
+					// Ждем в неблокирующем режиме, чтобы пропускать значения и дальше
 				}
 			}
 		}
