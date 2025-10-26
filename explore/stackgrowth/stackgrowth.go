@@ -61,6 +61,7 @@ func ConfirmRandSizedSlice() (uintptr, uintptr) {
 }
 
 // ConfirmNoChangesForEscapedValue - подтверждает что компилятор сразу помещает значение в кучу в случае использования указателя.
+// Странно что он не видит, что указатель не уходит за пределы функции.
 func ConfirmNoChangesForEscapedValue() (uintptr, uintptr) {
 	var a = 10
 
