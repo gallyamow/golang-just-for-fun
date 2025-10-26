@@ -3,9 +3,10 @@ package syncpool
 import (
 	"math/rand"
 	"sync"
+	"testing"
 )
 
-// UsingSyncPool показывает пример как используется sync.Pool для переиспользования объектов.
+// TestUsingSyncPool показывает пример как используется sync.Pool для переиспользования объектов.
 // sync.Pool — это структура из стандартной библиотеки sync, которая предназначена для эффективного повторного
 // использования временных объектов.
 //
@@ -24,7 +25,7 @@ import (
 // Put:
 // 1) Кладёт объект в локальный пул текущего потока.
 // 2) Не блокирует другие потоки.
-func UsingSyncPool(cnt int) []int {
+func TestUsingSyncPool(t *testing.T) {
 	var decoderPool = sync.Pool{
 		// переопределяем именно
 		New: func() interface{} {
@@ -35,14 +36,18 @@ func UsingSyncPool(cnt int) []int {
 	}
 
 	var instances []int
-	for range cnt {
+	for range 100 {
 		decoder := decoderPool.Get().(*SomeDecoder)
 		decoder.Use()
 		instances = append(instances, decoder.instance)
 		decoderPool.Put(decoder)
 	}
 
-	return instances
+	for i := 0; i < len(instances)-1; i++ {
+		if instances[i] != instances[i+1] {
+			t.Fatalf("used several instances")
+		}
+	}
 }
 
 type SomeDecoder struct {

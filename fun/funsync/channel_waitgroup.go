@@ -2,7 +2,7 @@ package funsync
 
 import "sync"
 
-// ChannelWaitGroup WaitGroup на канале + mutex
+// ChannelWaitGroup аналог sync.WaitGroup, реализованный на использовании канала + sync.Mutex.
 type ChannelWaitGroup struct {
 	n  int
 	ch chan struct{}

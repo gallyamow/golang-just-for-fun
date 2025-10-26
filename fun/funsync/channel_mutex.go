@@ -1,6 +1,6 @@
 package funsync
 
-// ChannelMutex mutex на канале
+// ChannelMutex аналог sync.Mutex, реализованный на использовании канала.
 type ChannelMutex struct {
 	flag chan struct{}
 }

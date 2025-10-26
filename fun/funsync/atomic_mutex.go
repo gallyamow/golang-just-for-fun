@@ -5,9 +5,9 @@ import (
 	"sync/atomic"
 )
 
-// AtomicSpinMutex на atomic + spin lock
+// AtomicSpinMutex аналог sync.Mutex реализованный на spin lock.
 type AtomicSpinMutex struct {
-	flag int32
+	flag int32 // atomic.Bool for go > 1.19
 }
 
 func (m *AtomicSpinMutex) Lock() {
@@ -18,7 +18,8 @@ func (m *AtomicSpinMutex) Lock() {
 	}
 }
 
-// в теории может выполнить только тот кто сделал lock
+// Unlock
+// В теории этот метод может выполнить только тот кто сделал lock
 func (m *AtomicSpinMutex) Unlock() {
 	if !atomic.CompareAndSwapInt32(&m.flag, 1, 0) {
 		panic("Unlock called from another goroutine")
