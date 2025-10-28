@@ -13,4 +13,3 @@ take latest / last value
 interface _
 init funct
 working with time.*
-sync.Cond usage
