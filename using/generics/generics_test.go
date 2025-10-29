@@ -1,6 +1,7 @@
 package generics
 
 import (
+	"slices"
 	"testing"
 )
 import "golang.org/x/exp/constraints"
@@ -161,6 +162,95 @@ func TestUsingGenericsWithStructs(t *testing.T) {
 		}
 		if stack.Pop() != 1 {
 			t.Errorf("got %v, want %v", stack.Pop(), 1)
+		}
+	})
+}
+
+// Collection фильтруемая коллекция.
+// @idiomatic: create new instance of unknown class.
+type Collection[T any] interface {
+	// InitNew фабричный метод для создания пустого экземпляра
+	InitEmpty() Collection[T]
+	AppendItem(...T)
+	GetItems() []T
+	Range() func(yield func(T) bool)
+}
+
+// SliceCollection реализация на основе slice.
+type SliceCollection[T any] struct {
+	items []T
+}
+
+func (c *SliceCollection[T]) InitEmpty() Collection[T] {
+	return &SliceCollection[T]{}
+}
+
+func (c *SliceCollection[T]) AppendItem(items ...T) {
+	c.items = append(c.items, items...)
+}
+
+func (c *SliceCollection[T]) GetItems() []T {
+	return c.items
+}
+
+func (c *SliceCollection[T]) Range() func(yield func(T) bool) {
+	return func(yield func(T) bool) {
+		for _, v := range c.items {
+			if !yield(v) {
+				break
+			}
+		}
+	}
+}
+
+// Filter фильтрует коллекцию используя предикат.
+func Filter[T any, C Collection[T]](coll C, predicate func(T) bool) Collection[T] {
+	res := coll.InitEmpty()
+
+	for _, item := range coll.GetItems() {
+		if predicate(item) {
+			res.AppendItem(item)
+		}
+	}
+
+	return res
+}
+
+func TestFilterableCollection(t *testing.T) {
+	t.Run("new", func(t *testing.T) {
+		c1 := &SliceCollection[string]{}
+		c1.AppendItem("s1", "s2")
+
+		c2 := c1.InitEmpty()
+		if len(c2.GetItems()) != 0 {
+			t.Errorf("got non empty")
+		}
+	})
+
+	t.Run("append+get", func(t *testing.T) {
+		c := &SliceCollection[int]{}
+
+		c.AppendItem(1, 2, 3)
+		c.AppendItem(4)
+
+		if !slices.Equal(c.GetItems(), []int{1, 2, 3, 4}) {
+			t.Errorf("got %v, want %v", c.GetItems(), []int{1, 2, 3, 4})
+		}
+	})
+
+	t.Run("range", func(t *testing.T) {
+		c := &SliceCollection[int]{}
+
+		c.AppendItem(1, 2, 3)
+		c.AppendItem(4, 5, 6)
+
+		var res []int
+		for v := range c.Range() {
+			res = append(res, v)
+		}
+
+		if !slices.Equal(c.GetItems(), []int{1, 2, 3, 4, 5, 6}) {
+			t.Errorf("got %v, want %v", c.GetItems(), []int{1, 2, 3, 4, 5, 6})
 		}
 	})
 }
