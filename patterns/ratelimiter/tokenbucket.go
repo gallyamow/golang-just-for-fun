@@ -1,6 +1,11 @@
 package ratelimiter
 
-import "time"
+import (
+	"context"
+	"math"
+	"sync"
+	"time"
+)
 
 // TokenBucket - ведро с токенами.
 //
@@ -18,7 +23,7 @@ import "time"
 //
 // Идея:
 // Есть “ведро”, которое наполняется токенами с фиксированной скоростью.
-// Чтобы выполнить запрос, нужно забрать токен (или несколько) из ведра.
+// Чтобы выполнить запрос, нужно забрать токен из ведра.
 // Если токенов нет — запрос либо блокируется, либо отклоняется.
 // Можно делать всплески трафика до ёмкости ведра.
 //
@@ -26,22 +31,58 @@ import "time"
 // Нужна память на токены и дату последнего добавления.
 type TokenBucket struct {
 	// Максимальная ёмкость
-	cap    int
-	tokens float64
-	rate   float64
-	last   time.Time
+	cap        int
+	tokens     float64
+	rate       float64 // в секунду
+	lastUpdate time.Time
+	mu         sync.Mutex
+	cond       *sync.Cond
 }
 
+// NewTokenBucket создает новую структуру.
+// @idiomatic: store mutex in struct
 func NewTokenBucket(cap int, rate float64) *TokenBucket {
-	// Наполненное со старта
-	return &TokenBucket{cap, float64(cap), rate, time.Now()}
+	// Вот так создать mutex и затем передать его при создании структуры нельзя. Получим ошибку:
+	// "Literal copies a lock value from 'mu': type 'sync.Mutex' is 'sync.Locker'"
+	// Потому что даже при этом производится копирование (а mutex нельзя копировать _noCopy).
+	// Решение:
+	// 1) хранить указатель на него
+	// 2) сначала создать структуру не указывая его, затем уже взять по ссылке из структур
+	// Обычно выбирают второй, то есть указатель на mutex редко хранят, так как структура небольшая.
+	// Плюс: это делает его полем структуры, вместо того чтобы он лежал где то в куче.
+	//
+	// А вот sync.Cond как раз обычно хранят в виде указателя. Потому что он создается методов NewCond который возвращает указатель.
+	// tb.cond = *sync.NewCond(&tb.mu) - это работает, но лучше так не делать, потому что будет копия.
+	tb := TokenBucket{
+		cap:        cap,
+		tokens:     float64(cap), // наполненное со старта
+		rate:       rate,
+		lastUpdate: time.Now(),
+	}
+
+	tb.cond = sync.NewCond(&tb.mu)
+
+	return &tb
 }
 
 // Allow позволяет проверить возможность без блокировки.
 func (tb *TokenBucket) Allow() bool {
+	now := time.Now()
+	elapsed := int(now.Sub(tb.lastUpdate).Seconds())
+
+	tb.tokens = math.Min(float64(tb.cap), float64(tb.rate*elapsed))
+
+	if tb.tokens >= 1 {
+		tb.tokens -= 1
+		return true
+	}
+
 	return false
 }
 
-func (tb *TokenBucket) Wait() {
+// Wait блокирует выполнение до тех пор, пока не появится токен.
+func (tb *TokenBucket) Wait(ctx context.Context) {
+	for {
 
+	}
 }

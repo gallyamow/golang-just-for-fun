@@ -1,5 +1,7 @@
 package ratelimiter
 
+import "testing"
+
 // Цели использования rate limiter:
 // Защита ресурсов
 // Ограничение количества запросов к серверу, базе данных или API.
@@ -24,3 +26,11 @@ package ratelimiter
 // Оптимизация стоимости и производительности
 // Контролирует расход ресурсов (CPU, память, трафик), особенно в облачных сервисах.
 // Пример: ограничение частоты вызовов платного API, чтобы не тратить лишние деньги.
+func TestTokenBucket(t *testing.T) {
+	t.Run("allow", func(t *testing.T) {
+		tb := NewTokenBucket(10, 1)
+		if !tb.Allow() {
+			t.Errorf("not allow")
+		}
+	})
+}
