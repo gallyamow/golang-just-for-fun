@@ -36,7 +36,6 @@ type TokenBucket struct {
 	rate       float64 // в секунду
 	lastUpdate time.Time
 	mu         sync.Mutex
-	cond       *sync.Cond
 }
 
 // NewTokenBucket создает новую структуру.
@@ -60,17 +59,18 @@ func NewTokenBucket(cap int, rate float64) *TokenBucket {
 		lastUpdate: time.Now(),
 	}
 
-	tb.cond = sync.NewCond(&tb.mu)
+	// решил обойтись без cond, так как его использование требует запуска goroutine для refill
+	// tb.cond = sync.NewCond(&tb.mu)
 
 	return &tb
 }
 
 // Allow позволяет проверить возможность без блокировки.
 func (tb *TokenBucket) Allow() bool {
-	now := time.Now()
-	elapsed := int(now.Sub(tb.lastUpdate).Seconds())
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
 
-	tb.tokens = math.Min(float64(tb.cap), float64(tb.rate*elapsed))
+	tb.refill()
 
 	if tb.tokens >= 1 {
 		tb.tokens -= 1
@@ -81,8 +81,34 @@ func (tb *TokenBucket) Allow() bool {
 }
 
 // Wait блокирует выполнение до тех пор, пока не появится токен.
+// @idiomatic: float duration in ns
+// @idiomatic: cancel timer, do not call defer timer.Stop() in loop
 func (tb *TokenBucket) Wait(ctx context.Context) {
-	for {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
 
+	for {
+		if tb.tokens >= 1 {
+			tb.tokens -= 1
+			return
+		}
+
+		waiting := time.Duration(((1 - tb.tokens) / tb.rate) * float64(time.Second))
+		timer := time.NewTimer(waiting)
+
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+			tb.refill()
+		}
 	}
+}
+
+func (tb *TokenBucket) refill() {
+	now := time.Now()
+	elapsed := now.Sub(tb.lastUpdate).Seconds()
+	tb.tokens = math.Min(float64(tb.cap), tb.tokens+tb.rate*elapsed)
+	tb.lastUpdate = now
 }
