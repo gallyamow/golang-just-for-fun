@@ -37,11 +37,11 @@ import (
 // 4) Когда кто-то вызывает Signal или Broadcast, runtime пробуждает соответствующие goroutines.
 // 5) После пробуждения goroutine автоматически снова захватывает мьютекс.
 // Signal()
-// Пробуждает одну горутину из списка notifyList.
+// Пробуждает одну goroutine из списка notifyList.
 // Broadcast()
-// Пробуждает все ожидающие горутины.
+// Пробуждает все ожидающие goroutines.
 //
-// После пробуждения горутина автоматически снова захватывает мьютекс.
+// После пробуждения goroutine автоматически снова захватывает мьютекс.
 func TestUsingSyncCond(t *testing.T) {
 	t.Run("basic", func(t *testing.T) {
 		var mu sync.Mutex
