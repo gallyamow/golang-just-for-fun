@@ -4,19 +4,23 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/maphash"
-	"sync"
 )
 
 type shardedCache[K comparable, V any] struct {
 	// Указатель, так как внутри mutex + реализует интерфейс по указателю
 	mp         map[uint64]*singleCache[K, V]
 	shardCount uint64
-	mu         sync.RWMutex
 }
 
 func NewShardedCache[K comparable, V any](shardCount uint64) Cache[K, V] {
+	// @idiomatic: pre-initialized shards (вместо lazy resolve + mutex там и двойная проверка)
+	mp := make(map[uint64]*singleCache[K, V])
+	for i := range shardCount {
+		mp[i] = NewSingleCache[K, V]().(*singleCache[K, V])
+	}
+
 	return &shardedCache[K, V]{
-		mp:         make(map[uint64]*singleCache[K, V]),
+		mp:         mp,
 		shardCount: shardCount,
 	}
 }
@@ -33,23 +37,18 @@ func (c *shardedCache[K, V]) Set(key K, value V) {
 
 func (c *shardedCache[K, V]) resolveShardCache(key K) *singleCache[K, V] {
 	shardNum := hashCode(key) % c.shardCount
-	_, ok := c.mp[shardNum]
-	if !ok {
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		c.mp[shardNum] = NewSingleCache[K, V]().(*singleCache[K, V])
-	}
-
 	return c.mp[shardNum]
 }
 
 var seed = maphash.MakeSeed()
 
-// @idiomatic: type switch with generic
+// @idiomatic: type switch with generic (any)
 func hashCode[K comparable](key K) uint64 {
 	var h maphash.Hash
 	h.SetSeed(seed)
 
+	// Приводим сначала к any. Потому что key — это параметр типа K, а не интерфейсное значение.
+	// Для type switch требуется значение интерфейсного типа.
 	switch v := any(key).(type) {
 	case string:
 		_, err := h.WriteString(v)

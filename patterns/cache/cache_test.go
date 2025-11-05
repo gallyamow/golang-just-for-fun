@@ -85,6 +85,10 @@ func BenchmarkContainers(b *testing.B) {
 		c := NewShardedCache[string, string](64)
 		benchCache(b, c)
 	})
+	b.Run("sharded-128", func(b *testing.B) {
+		c := NewShardedCache[string, string](128)
+		benchCache(b, c)
+	})
 }
 
 func benchCache(b *testing.B, cache Cache[string, string]) {
