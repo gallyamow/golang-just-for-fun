@@ -31,12 +31,12 @@ func TestSingleCache(t *testing.T) {
 
 func TestShardedCache(t *testing.T) {
 	t.Run("sequentially", func(t *testing.T) {
-		c := NewShardedCache[string, string]()
+		c := NewShardedCache[string, string](8)
 		sequentially(t, c)
 	})
 
 	t.Run("concurrently", func(t *testing.T) {
-		c := NewShardedCache[string, string]()
+		c := NewShardedCache[string, string](8)
 
 		var wg sync.WaitGroup
 		wg.Add(10)
@@ -77,8 +77,12 @@ func BenchmarkContainers(b *testing.B) {
 		c := NewSingleCache[string, string]()
 		benchCache(b, c)
 	})
-	b.Run("sharded", func(b *testing.B) {
-		c := NewShardedCache[string, string]()
+	b.Run("sharded-8", func(b *testing.B) {
+		c := NewShardedCache[string, string](8)
+		benchCache(b, c)
+	})
+	b.Run("sharded-64", func(b *testing.B) {
+		c := NewShardedCache[string, string](64)
 		benchCache(b, c)
 	})
 }
