@@ -77,9 +77,9 @@ func TestTokenBucket(t *testing.T) {
 		ts := time.Now()
 
 		tb.Wait(t.Context())
-		elaspsed := time.Since(ts).Milliseconds()
+		elapsed := time.Since(ts).Milliseconds()
 
-		if !(elaspsed > 900 && elaspsed < 1100) {
+		if !(elapsed > 900 && elapsed < 1100) {
 			t.Errorf("invalid period")
 		}
 
