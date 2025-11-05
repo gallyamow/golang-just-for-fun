@@ -8,19 +8,19 @@ import (
 
 type shardedCache[K comparable, V any] struct {
 	// Указатель, так как внутри mutex + реализует интерфейс по указателю
-	mp         map[uint64]*singleCache[K, V]
-	shardCount uint64
+	sl         []*singleCache[K, V]
+	shardCount int
 }
 
-func NewShardedCache[K comparable, V any](shardCount uint64) Cache[K, V] {
+func NewShardedCache[K comparable, V any](shardCount int) Cache[K, V] {
 	// @idiomatic: pre-initialized shards (вместо lazy resolve + mutex там и двойная проверка)
-	mp := make(map[uint64]*singleCache[K, V])
+	sl := make([]*singleCache[K, V], shardCount)
 	for i := range shardCount {
-		mp[i] = NewSingleCache[K, V]().(*singleCache[K, V])
+		sl[i] = NewSingleCache[K, V]().(*singleCache[K, V])
 	}
 
 	return &shardedCache[K, V]{
-		mp:         mp,
+		sl:         sl,
 		shardCount: shardCount,
 	}
 }
@@ -36,8 +36,8 @@ func (c *shardedCache[K, V]) Set(key K, value V) {
 }
 
 func (c *shardedCache[K, V]) resolveShardCache(key K) *singleCache[K, V] {
-	shardNum := hashCode(key) % c.shardCount
-	return c.mp[shardNum]
+	shardNum := hashCode(key) % uint64(c.shardCount)
+	return c.sl[shardNum]
 }
 
 var seed = maphash.MakeSeed()

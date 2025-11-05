@@ -89,12 +89,39 @@ func BenchmarkContainers(b *testing.B) {
 		c := NewShardedCache[string, string](128)
 		benchCache(b, c)
 	})
+	b.Run("sharded-128-1000", func(b *testing.B) {
+		c := NewShardedCache[string, string](128)
+		benchCacheParallelN(b, c, 1000)
+	})
 }
 
 func benchCache(b *testing.B, cache Cache[string, string]) {
+	b.ResetTimer()
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			for i := range 1000 {
+				key := fmt.Sprintf("key%d", i)
+				val := fmt.Sprintf("val%d", i)
+				cache.Set(key, val)
+				cache.Get(key)
+			}
+		}
+	})
+}
+
+// @idiomatic: benchmark with goroutines limit
+func benchCacheParallelN(b *testing.B, cache Cache[string, string], goroutines int) {
+	b.ResetTimer()
+
+	sem := make(chan struct{}, goroutines)
+
+	b.RunParallel(func(pb *testing.PB) {
+		sem <- struct{}{}
+		defer func() { <-sem }()
+
+		for pb.Next() {
+			for i := 0; i < 1000; i++ {
 				key := fmt.Sprintf("key%d", i)
 				val := fmt.Sprintf("val%d", i)
 				cache.Set(key, val)
