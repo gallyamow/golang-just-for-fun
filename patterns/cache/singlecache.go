@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -13,11 +14,11 @@ type singleCache[K comparable, V any] struct {
 
 func (c *singleCache[K, V]) Get(key K) (V, bool) {
 	c.mu.RLock()
-	cacheItem, ok := c.mp[key]
+	item, ok := c.mp[key]
 	c.mu.RUnlock() // с defer нельзя, так как если захватив RLock пытаться взять Lock - заблокируемся
 
 	// @idiomatic: lazy cleaning
-	if !cacheItem.expire.IsZero() && cacheItem.expire.Before(time.Now()) {
+	if c.isExpired(&item) {
 		c.mu.Lock()
 		delete(c.mp, key)
 		c.mu.Unlock()
@@ -27,7 +28,7 @@ func (c *singleCache[K, V]) Get(key K) (V, bool) {
 		return zero, false
 	}
 
-	return cacheItem.value, ok
+	return item.value, ok
 }
 
 func (c *singleCache[K, V]) Set(key K, value V, ttl time.Duration) {
@@ -48,4 +49,32 @@ func NewSingleCache[K comparable, V any]() Cache[K, V] {
 	return &singleCache[K, V]{
 		mp: make(map[K]cacheItem[V]),
 	}
+}
+
+func (c *singleCache[K, V]) UseJanitor(ctx context.Context, tick time.Duration) {
+	go func() {
+		timer := time.NewTicker(tick)
+		defer timer.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+				c.mu.Lock()
+				for key, item := range c.mp {
+					if c.isExpired(&item) {
+						delete(c.mp, key)
+					}
+				}
+				c.mu.Unlock()
+			}
+		}
+	}()
+}
+
+// @idiomatic: pass by reference to prevent copying
+func (c *singleCache[K, V]) isExpired(item *cacheItem[V]) bool {
+	return !item.expire.IsZero() && item.expire.Before(time.Now())
 }

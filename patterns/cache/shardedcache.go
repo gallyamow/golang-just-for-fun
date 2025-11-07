@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"hash/maphash"
@@ -97,4 +98,12 @@ func hashCode[K comparable](key K) uint64 {
 		}
 	}
 	return h.Sum64()
+}
+
+// UseJanitor запускает автоматическую очистку.
+// (Можно объединить janitor для всех шард или использовать пул таймеров, чтобы снизить количество активных горутин.)
+func (c *shardedCache[K, V]) UseJanitor(ctx context.Context, tick time.Duration) {
+	for i := 0; i < c.shardCount; i++ {
+		c.sl[i].UseJanitor(ctx, tick)
+	}
 }

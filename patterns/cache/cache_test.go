@@ -33,6 +33,11 @@ func TestSingleCache(t *testing.T) {
 		c := NewSingleCache[string, string]()
 		ttl(t, c)
 	})
+
+	t.Run("janitor", func(t *testing.T) {
+		c := NewSingleCache[string, string]()
+		janitor(t, c)
+	})
 }
 
 func TestShardedCache(t *testing.T) {
@@ -60,6 +65,11 @@ func TestShardedCache(t *testing.T) {
 	t.Run("ttl", func(t *testing.T) {
 		c := NewShardedCache[string, string](8)
 		ttl(t, c)
+	})
+
+	t.Run("janitor", func(t *testing.T) {
+		c := NewShardedCache[string, string](8)
+		janitor(t, c)
 	})
 }
 
@@ -92,6 +102,31 @@ func ttl(t *testing.T, cache Cache[string, string]) {
 	}
 
 	time.Sleep(15 * time.Millisecond)
+
+	_, ok = cache.Get("key")
+	if ok {
+		t.Fatalf("expected key %q to be missing", "key")
+	}
+}
+
+func janitor(t *testing.T, cache Cache[string, string]) {
+	cache.Set("key", "val", 100*time.Millisecond)
+
+	cache.UseJanitor(t.Context(), 50*time.Millisecond)
+
+	_, ok := cache.Get("key")
+	if !ok {
+		t.Fatalf("expected key %q to be found", "key")
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	_, ok = cache.Get("key")
+	if !ok {
+		t.Fatalf("expected key %q to be found", "key")
+	}
+
+	time.Sleep(50 * time.Millisecond)
 
 	_, ok = cache.Get("key")
 	if ok {
