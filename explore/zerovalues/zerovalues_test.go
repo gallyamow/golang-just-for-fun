@@ -15,6 +15,21 @@ func TestZeroValues(t *testing.T) {
 	// Все значения равны zero value типа. Для массивов будет массив заданной длины из zero value, для структур - структура
 	// где все поля это zero-value.
 	t.Run("value_types_equals_zero", func(t *testing.T) {
+		var b bool
+		if b != false {
+			t.Errorf("bool is not false")
+		}
+
+		var r rune
+		if r != 0 {
+			t.Errorf("rune is not 0")
+		}
+
+		var c complex128
+		if real(c) != 0 || imag(c) != 0 {
+			t.Errorf("comples is not (0, 0)")
+		}
+
 		var s string
 		if s != "" {
 			t.Errorf("string is not empty")
@@ -49,6 +64,16 @@ func TestZeroValues(t *testing.T) {
 
 		if arr != [2]int{} {
 			t.Errorf("array is not zero filled array")
+		}
+
+		var f func(int) int
+		if f != nil {
+			t.Errorf("func is not nil")
+		}
+
+		var e error
+		if e != nil {
+			t.Errorf("error is not nil")
 		}
 	})
 
