@@ -1,10 +1,16 @@
 package cache
 
-// Cache sharded, thread-safe in-memory кеш.
-// - + ttl
-// - + sharded
-// https://www.youtube.com/watch?v=QSfzdf3Dwb0
+import "time"
+
+// Cache thread-safe in-memory кеш.
+// - sharded variant
+// - ttl
 type Cache[K any, V any] interface {
 	Get(key K) (V, bool)
-	Set(key K, value V)
+	Set(key K, value V, ttl time.Duration)
+}
+
+type cacheItem[V any] struct {
+	value  V
+	expire time.Time
 }

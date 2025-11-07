@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestSingleCache(t *testing.T) {
@@ -26,6 +27,11 @@ func TestSingleCache(t *testing.T) {
 		}
 
 		wg.Wait()
+	})
+
+	t.Run("ttl", func(t *testing.T) {
+		c := NewSingleCache[string, string]()
+		ttl(t, c)
 	})
 }
 
@@ -50,10 +56,15 @@ func TestShardedCache(t *testing.T) {
 
 		wg.Wait()
 	})
+
+	t.Run("ttl", func(t *testing.T) {
+		c := NewShardedCache[string, string](8)
+		ttl(t, c)
+	})
 }
 
 func sequentially(t *testing.T, cache Cache[string, string]) {
-	cache.Set("key", "val")
+	cache.Set("key", "val", 0)
 	value, ok := cache.Get("key")
 
 	if !ok {
@@ -69,6 +80,22 @@ func sequentially(t *testing.T, cache Cache[string, string]) {
 	}
 	if value != "" {
 		t.Errorf("got %q, want %q", value, "")
+	}
+}
+
+func ttl(t *testing.T, cache Cache[string, string]) {
+	cache.Set("key", "val", 10*time.Millisecond)
+
+	_, ok := cache.Get("key")
+	if !ok {
+		t.Fatalf("expected key %q to be found", "key")
+	}
+
+	time.Sleep(15 * time.Millisecond)
+
+	_, ok = cache.Get("key")
+	if ok {
+		t.Fatalf("expected key %q to be missing", "key")
 	}
 }
 
@@ -103,7 +130,7 @@ func benchCache(b *testing.B, cache Cache[string, string]) {
 			for i := range 1000 {
 				key := fmt.Sprintf("key%d", i)
 				val := fmt.Sprintf("val%d", i)
-				cache.Set(key, val)
+				cache.Set(key, val, 0)
 				cache.Get(key)
 			}
 		}
@@ -124,7 +151,7 @@ func benchCacheParallelN(b *testing.B, cache Cache[string, string], goroutines i
 			for i := 0; i < 1000; i++ {
 				key := fmt.Sprintf("key%d", i)
 				val := fmt.Sprintf("val%d", i)
-				cache.Set(key, val)
+				cache.Set(key, val, 0)
 				cache.Get(key)
 			}
 		}

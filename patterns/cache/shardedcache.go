@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/maphash"
+	"time"
 )
 
 // shardedCache кеш хранящий значения в нескольких отдельный кэшах, чтобы минимизировать количество loсk на мьютексах.
@@ -31,9 +32,9 @@ func (c *shardedCache[K, V]) Get(key K) (V, bool) {
 	return shard.Get(key)
 }
 
-func (c *shardedCache[K, V]) Set(key K, value V) {
+func (c *shardedCache[K, V]) Set(key K, value V, ttl time.Duration) {
 	shard := c.resolveShardCache(key)
-	shard.Set(key, value)
+	shard.Set(key, value, ttl)
 }
 
 func (c *shardedCache[K, V]) resolveShardCache(key K) *singleCache[K, V] {
