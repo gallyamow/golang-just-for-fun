@@ -125,7 +125,7 @@ func WithMaxDelay(val time.Duration) ConfigOptionFunc {
 
 func WithBackoffFactor(val float64) ConfigOptionFunc {
 	if val < 0 {
-		panic("backoff factor must be greater or equal than 0")
+		panic("backoff factor must be greater or equal than 0, pass 0 if you want to disable backoff")
 	}
 
 	return func(c *Config) {
@@ -134,7 +134,7 @@ func WithBackoffFactor(val float64) ConfigOptionFunc {
 }
 func WithJitterFactor(val float64) ConfigOptionFunc {
 	if val < 0 || val > 1 {
-		panic("jitter must be in [0, 1]")
+		panic("jitter must be in [0, 1], pass 0 if you want to disable jitter")
 	}
 
 	return func(c *Config) {
