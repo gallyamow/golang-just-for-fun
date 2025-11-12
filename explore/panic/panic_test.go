@@ -10,7 +10,8 @@ import (
 // Когда вызывается panic, Go делает следующее:
 // 1) Останавливает текущую goroutine.
 // 2) Выполняет все defer в обратном порядке их объявления (т.е. продолжаться ниже panic - не будет)
-// 3) Если panic не был пойман через recover, программа завершает выполнение с сообщением об ошибке и stack-trace.
+// 3) Если, паника не была поймана, то это goroutine завершается, если она является main-goroutine, то вся программа завершает выполнение
+// с сообщением об ошибке и stack-trace.
 //
 // При использовании goroutines:
 // Паника в одной goroutine не убивает другие goroutine. Если паника не поймана через recover, эта конкретная
@@ -100,7 +101,7 @@ func TestPanic(t *testing.T) {
 		}
 
 		// доходит до конца, даже если не было recover
-		t.Log("ended")
+		t.Log("the main goroutine is complete despite panic in some of them")
 	})
 
 	t.Run("one_goroutine_fails_but_it_recovered", func(t *testing.T) {
@@ -141,6 +142,6 @@ func TestPanic(t *testing.T) {
 		}
 
 		// доходит до конца, даже если не было recover
-		t.Log("ended")
+		t.Log("the main goroutine is complete despite panic in some of them")
 	})
 }
