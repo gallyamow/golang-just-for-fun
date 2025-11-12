@@ -151,8 +151,63 @@ func TestContextAwareChan(t *testing.T) {
 	})
 }
 
+func TestContextAwareWrapper(t *testing.T) {
+	t.Run("calls_fn", func(t *testing.T) {
+		wfn := ContextAwareWrapper[int](t.Context(), testWorkBuilder(10, 400*time.Millisecond))
+
+		res, err := wfn()
+		if err != nil {
+			t.Fatalf("got error %v", err)
+		}
+		if res != 10 {
+			t.Errorf("got %d, want 10", res)
+		}
+	})
+
+	t.Run("cancelable", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		cancel()
+
+		wfn := ContextAwareWrapper[int](ctx, testWorkBuilder(10, 5*time.Second))
+		res, err := wfn()
+
+		if err == nil {
+			t.Fatalf("got no error")
+		}
+
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("got unexpected error %v", err)
+		}
+
+		if res != 0 {
+			t.Errorf("got non zero value %d", res)
+		}
+	})
+
+	t.Run("stops_on_error", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		wfn := ContextAwareWrapper[int](ctx, func() (int, error) {
+			time.Sleep(time.Duration(100 * time.Millisecond))
+			return 0, errors.New("some error")
+		})
+		res, err := wfn()
+
+		if err == nil {
+			t.Fatalf("got no error")
+		}
+
+		if res != 0 {
+			t.Errorf("got non zero value %d", res)
+		}
+	})
+}
+
 // testWork долгая функция не обрабатывающая context
-func testWorkBuilder(val int, timeout time.Duration) workFunc[int] {
+func testWorkBuilder(val int, timeout time.Duration) WorkFunc[int] {
 	return func() (int, error) {
 		time.Sleep(timeout)
 		return val, nil

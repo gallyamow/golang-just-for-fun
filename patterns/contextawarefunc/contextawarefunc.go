@@ -14,9 +14,21 @@ import (
 //
 // Нюанс любой реализации: так как fn не поддерживает контекст, то значит ее нельзя прервать на середине исполнения.
 // Даже если contex cancelled, начавшая исполняться fn() и содержащая ее goroutine будет завершена.
+//
+// Основная идея:
+// Мы запускаем fn() в отдельной goroutine, чтобы иметь возможность “соревноваться”
+// между завершением fn() и сигналом ctx.Done().
+//
+// Это даёт нам контроль над временем ожидания — вызывающий код может вернуться
+// раньше, если контекст отменён, не дожидаясь завершения fn().
+//
+// Важно понимать: поскольку Go не предоставляет механизм "прерывания"
+// чужой goroutine (и fn не принимает контекст), сама fn() всё равно доработает до конца в фоне.
+// Мы просто "забываем" о ней — результат уже не используется, но fn() продолжит
+// выполняться, пока не завершится сама.
 
 // ContextAwareRun1 реализация на основе done-channel.
-func ContextAwareRun1[R any](ctx context.Context, fn workFunc[R]) (R, error) {
+func ContextAwareRun1[R any](ctx context.Context, fn WorkFunc[R]) (R, error) {
 	var zero R
 
 	// Этот способ работает и без этой проверки. Проверяем чтобы не запускать функцию даже один раз.
@@ -29,13 +41,14 @@ func ContextAwareRun1[R any](ctx context.Context, fn workFunc[R]) (R, error) {
 
 	done := make(chan struct{})
 	go func() {
+		// @idiomatic: fire-and-forget pattern
+		defer func() { _ = recover() }()
 		defer close(done)
 		res, err = fn()
 	}()
 
 	select {
 	case <-ctx.Done():
-		var zero R
 		return zero, ctx.Err()
 	case <-done:
 		return res, err
@@ -44,7 +57,7 @@ func ContextAwareRun1[R any](ctx context.Context, fn workFunc[R]) (R, error) {
 
 // ContextAwareRun2 реализация на основе Result-channel.
 // @idiomatic: canonical way
-func ContextAwareRun2[R any](ctx context.Context, fn workFunc[R]) (R, error) {
+func ContextAwareRun2[R any](ctx context.Context, fn WorkFunc[R]) (R, error) {
 	var zero R
 
 	// Этот способ работает и без этой проверки. Проверяем чтобы не запускать функцию даже один раз.
@@ -54,6 +67,8 @@ func ContextAwareRun2[R any](ctx context.Context, fn workFunc[R]) (R, error) {
 
 	resCh := make(chan Result[R], 1)
 	go func() {
+		// @idiomatic: fire-and-forget pattern
+		defer func() { _ = recover() }()
 		defer close(resCh)
 		res, err := fn()
 		resCh <- Result[R]{res, err}
@@ -69,7 +84,7 @@ func ContextAwareRun2[R any](ctx context.Context, fn workFunc[R]) (R, error) {
 
 // ContextAwareRun3 реализация на основе ErrGroup.
 // @idiomatic: modern way
-func ContextAwareRun3[R any](ctx context.Context, fn workFunc[R]) (R, error) {
+func ContextAwareRun3[R any](ctx context.Context, fn WorkFunc[R]) (R, error) {
 	var zero R
 	var res R
 
@@ -81,6 +96,8 @@ func ContextAwareRun3[R any](ctx context.Context, fn workFunc[R]) (R, error) {
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
+		// @idiomatic: fire-and-forget pattern
+		defer func() { _ = recover() }()
 		r, err := fn()
 		if err != nil {
 			return err
@@ -97,8 +114,8 @@ func ContextAwareRun3[R any](ctx context.Context, fn workFunc[R]) (R, error) {
 	return res, nil
 }
 
-type ContextAwareRunFunc[R any] func(ctx context.Context, fn workFunc[R]) (R, error)
-type workFunc[R any] func() (R, error)
+type ContextAwareRunFunc[R any] func(ctx context.Context, fn WorkFunc[R]) (R, error)
+type WorkFunc[R any] func() (R, error)
 
 type Result[R any] struct {
 	Val R
@@ -107,7 +124,7 @@ type Result[R any] struct {
 
 // ContextAwareChan реализация возвращает канал с результатом, что позволяет более гибко его использовать (например в
 // select ожидающем готовности результата нескольких вызовов).
-func ContextAwareChan[R any](ctx context.Context, fn workFunc[R]) <-chan Result[R] {
+func ContextAwareChan[R any](ctx context.Context, fn WorkFunc[R]) <-chan Result[R] {
 	var zero R
 
 	out := make(chan Result[R], 1)
@@ -120,9 +137,12 @@ func ContextAwareChan[R any](ctx context.Context, fn workFunc[R]) <-chan Result[
 	}
 
 	go func() {
-		res, err := fn()
+		// @idiomatic: fire-and-forget pattern
+		defer func() { _ = recover() }()
 		// @idiomatic: defer closing
 		defer close(out)
+
+		res, err := fn()
 
 		// Вариант 1 — "Результат важнее контекста"
 		// Хочу вернуть результат, если он успел рассчитаться, даже при отмене контекста
@@ -146,4 +166,12 @@ func ContextAwareChan[R any](ctx context.Context, fn workFunc[R]) <-chan Result[
 	}()
 
 	return out
+}
+
+// ContextAwareWrapper реализация возвращающая context-aware версию функции (wraps).
+// @idiomatic: modern way
+func ContextAwareWrapper[R any](ctx context.Context, fn WorkFunc[R]) WorkFunc[R] {
+	return func() (R, error) {
+		return ContextAwareRun1(ctx, fn)
+	}
 }
