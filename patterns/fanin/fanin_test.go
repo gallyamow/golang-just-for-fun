@@ -21,7 +21,7 @@ func TestFanIn(t *testing.T) {
 			inputChs[i] = makeInputCh(vals, 3)
 		}
 
-		outputCh := FanIn(t.Context(), inputChs...)
+		outputCh := Merge(t.Context(), inputChs...)
 
 		expectedSum := (valsCnt * (valsCnt + 1) / 2) * chsCnt
 
@@ -49,7 +49,7 @@ func TestFanIn(t *testing.T) {
 			inputChs[i] = makeInputCh(vals, 3)
 		}
 
-		outputCh := FanIn(t.Context(), inputChs...)
+		outputCh := Merge(t.Context(), inputChs...)
 
 		expectedSum := (valsCnt * (valsCnt + 1) / 2) * chsCnt
 
@@ -79,7 +79,7 @@ func TestFanIn(t *testing.T) {
 			inputChs[i] = makeInputCh(vals, 0)
 		}
 
-		outputCh := FanIn(t.Context(), inputChs...)
+		outputCh := Merge(t.Context(), inputChs...)
 
 		expectedSum := (valsCnt * (valsCnt + 1) / 2) * chsCnt
 
@@ -109,7 +109,7 @@ func TestFanIn(t *testing.T) {
 			inputChs[i] = makeInputCh(vals, 0)
 		}
 
-		outputCh := FanIn(t.Context(), inputChs...)
+		outputCh := Merge(t.Context(), inputChs...)
 
 		expectedSum := (valsCnt * (valsCnt + 1) / 2) * chsCnt
 
@@ -128,7 +128,7 @@ func TestFanIn(t *testing.T) {
 		ch2 := make(chan int)
 
 		ctx, cancel := context.WithCancel(context.Background())
-		outputCh := FanIn(ctx, ch1, ch2)
+		outputCh := Merge(ctx, ch1, ch2)
 
 		// Пишем не блокируясь
 		go func() { ch1 <- 42 }()
@@ -158,7 +158,7 @@ func TestFanIn(t *testing.T) {
 		ch2 := make(chan int)
 
 		ctx, cancel := context.WithCancel(context.Background())
-		outputCh := FanIn(ctx, ch1, ch2)
+		outputCh := Merge(ctx, ch1, ch2)
 
 		// Пишем одно не блокируясь
 		go func() { ch1 <- 42 }()
@@ -188,7 +188,7 @@ func TestFanIn(t *testing.T) {
 		ch2 := make(chan int)
 
 		ctx, cancel := context.WithCancel(context.Background())
-		outputCh := FanIn(ctx, ch1, ch2)
+		outputCh := Merge(ctx, ch1, ch2)
 
 		go func() { ch1 <- 42 }()
 		go func() { ch2 <- 43 }()

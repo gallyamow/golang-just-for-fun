@@ -5,17 +5,17 @@ import (
 	"sync"
 )
 
-// FanIn - читаем из нескольких и пишем в один канал.
+// Merge - читаем из нескольких и пишем в один канал.
 //
 // Требования:
 //   - принимает набор input-каналов для чтения и возвращает один output-канал куда пишет результаты из всех остальных каналов.
 //   - закрывает output-канал после закрытия всех input-каналов
 //   - реагирует на отмену через контекст
 //
-// @idiomatic FanIn
+// @idiomatic Merge = FanIn
 // @idiomatic Отдать канал
 // @idiomatic for + select <-ctx.Done() вместо range(ch) - cancellable channel loops
-func FanIn[T any](ctx context.Context, inputChs ...<-chan T) <-chan T {
+func Merge[T any](ctx context.Context, inputChs ...<-chan T) <-chan T {
 	outputCh := make(chan T)
 
 	var wg sync.WaitGroup
