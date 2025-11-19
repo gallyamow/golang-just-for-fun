@@ -27,7 +27,7 @@ import (
 // Мы просто "забываем" о ней — результат уже не используется, но fn() продолжит
 // выполняться, пока не завершится сама.
 
-// ContextAwareRun1 реализация на основе done-channel.
+// ContextAwareRun1 реализация на основе done-channel и global переменных res и err.
 func ContextAwareRun1[R any](ctx context.Context, fn WorkFunc[R]) (R, error) {
 	var zero R
 
@@ -65,6 +65,7 @@ func ContextAwareRun2[R any](ctx context.Context, fn WorkFunc[R]) (R, error) {
 		return zero, ctx.Err()
 	}
 
+	// @idiomatic: use a buffered channel to prevent goroutine leak
 	resCh := make(chan Result[R], 1)
 	go func() {
 		// @idiomatic: fire-and-forget pattern
