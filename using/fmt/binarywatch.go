@@ -31,17 +31,24 @@ func (b *binTime) String() string {
 	return fmt.Sprintf("%d%d:%d%d:%d%d", b.h1, b.h2, b.m1, b.m2, b.s1, b.s2)
 }
 
-// pointDisplay12 represents time in 24-hours format
-type pointDisplay12 struct {
-	h1 [2]bool // 0-2
-	h2 [4]bool // 0-8
-	m1 [3]bool // 0-4
-	m2 [4]bool // 0-8
-	s1 [3]bool // 0-3
-	s2 [4]bool // 0-8
+// pointDisplay represents time in 24-hours format
+type pointDisplay struct {
+	color string
+	h1    [2]bool // 0-2
+	h2    [4]bool // 0-8
+	m1    [3]bool // 0-4
+	m2    [4]bool // 0-8
+	s1    [3]bool // 0-3
+	s2    [4]bool // 0-8
 }
 
-func (d *pointDisplay12) applyTime(b *binTime) {
+func newPointDisplay(color string) *pointDisplay {
+	return &pointDisplay{
+		color: color,
+	}
+}
+
+func (d *pointDisplay) applyTime(b *binTime) {
 	// способ через &2^
 	d.h1[0] = b.h1&1 == 1
 	d.h1[1] = b.h1&2 == 2
@@ -74,7 +81,46 @@ const EmptyPoint = ' '
 const FullPoint = '●'
 const NonePoint = '○'
 
-func resolvePointRune(zi int, column []bool) rune {
+func (d *pointDisplay) Print(cb *binTime) {
+	d.applyTime(cb)
+
+	// clear screen and move to 0,0
+	fmt.Print("\033[H\033[2J")
+	d.setColor()
+	fmt.Printf("%s%s\n", strings.Repeat(" ", 7), cb)
+
+	for i := 0; i < 4; i++ {
+		zi := 4 - i - 1
+
+		var p rune
+		for j := 0; j < 6; j++ {
+			switch j {
+			// hours
+			case 0:
+				p = d.resolveRune(zi, d.h1[:])
+			case 1:
+				p = d.resolveRune(zi, d.h2[:])
+			// minutes
+			case 2:
+				p = d.resolveRune(zi, d.m1[:])
+			case 3:
+				p = d.resolveRune(zi, d.m2[:])
+			// seconds
+			case 4:
+				p = d.resolveRune(zi, d.s1[:])
+			case 5:
+				p = d.resolveRune(zi, d.s2[:])
+			}
+
+			fmt.Printf("%3c", p)
+		}
+		fmt.Println()
+	}
+
+	d.resetColor()
+}
+
+func (d *pointDisplay) resolveRune(zi int, column []bool) rune {
 	p := EmptyPoint
 	//fmt.Println(len(column), column, zi)
 	if len(column) > zi {
@@ -87,43 +133,19 @@ func resolvePointRune(zi int, column []bool) rune {
 	return p
 }
 
-func (d *pointDisplay12) Print(cb *binTime) {
-	d.applyTime(cb)
+func (d *pointDisplay) setColor() {
+	fmt.Printf("\033[%s", d.color)
+}
 
-	for i := 0; i < 4; i++ {
-		zi := 4 - i - 1
-
-		var p rune
-		for j := 0; j < 6; j++ {
-			switch j {
-			// hours
-			case 0:
-				p = resolvePointRune(zi, d.h1[:])
-			case 1:
-				p = resolvePointRune(zi, d.h2[:])
-			// minutes
-			case 2:
-				p = resolvePointRune(zi, d.m1[:])
-			case 3:
-				p = resolvePointRune(zi, d.m2[:])
-			// seconds
-			case 4:
-				p = resolvePointRune(zi, d.s1[:])
-			case 5:
-				p = resolvePointRune(zi, d.s2[:])
-			}
-
-			fmt.Printf("%3c", p)
-		}
-		fmt.Println()
-	}
+func (d *pointDisplay) resetColor() {
+	fmt.Printf("\033[%s", "0")
 }
 
 func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM) // os.Interrupt = syscall.SIGINT
 
-	display := &pointDisplay12{}
+	display := newPointDisplay("32m")
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -133,15 +155,7 @@ func main() {
 		case <-c:
 			return
 		default:
-			cb := currBinTime()
-
-			// clear screen & move cursor to top left
-			fmt.Print("\033[H\033[2J")
-
-			fmt.Printf("%s%s\n", strings.Repeat(" ", 7), cb)
-			display.applyTime(cb)
-			display.Print(cb)
-
+			display.Print(currBinTime())
 			<-ticker.C
 		}
 	}
