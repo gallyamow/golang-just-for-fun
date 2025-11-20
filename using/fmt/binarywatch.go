@@ -81,11 +81,16 @@ const EmptyPoint = ' '
 const FullPoint = '●'
 const NonePoint = '○'
 
+func (d *pointDisplay) PrintSpacer(size int) {
+	for range size {
+		fmt.Println()
+	}
+}
+
 func (d *pointDisplay) Print(cb *binTime) {
 	d.applyTime(cb)
 
-	// clear screen and move to 0,0
-	fmt.Print("\033[H\033[2J")
+	d.moveTopLeft()
 	d.setColor()
 	fmt.Printf("%s%s\n", strings.Repeat(" ", 7), cb)
 
@@ -133,19 +138,34 @@ func (d *pointDisplay) resolveRune(zi int, column []bool) rune {
 	return p
 }
 
+func (d *pointDisplay) ClearScreen() {
+	fmt.Printf("\033[%s", "2J")
+}
+
 func (d *pointDisplay) setColor() {
 	fmt.Printf("\033[%s", d.color)
 }
 
 func (d *pointDisplay) resetColor() {
-	fmt.Printf("\033[%s", "0")
+	fmt.Printf("\033[%s", "0m")
 }
 
+func (d *pointDisplay) moveTopLeft() {
+	fmt.Print("\033[H")
+}
+
+// Main
+// Изучаем возможности:
+// - очищать консоль
+// - менять цвет
+// - выводить без скролла
 func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM) // os.Interrupt = syscall.SIGINT
 
 	display := newPointDisplay("32m")
+	display.ClearScreen()
+	//display.PrintSpacer(10)
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
