@@ -30,11 +30,11 @@ import (
 // Минусы:
 // Нужна память на токены и дату последнего добавления.
 type TokenBucket struct {
-	cap          int // Максимальная ёмкость
-	tokens       float64
-	refillRate   float64 // Сколько пополняется в секунду
-	lastRefilled time.Time
-	mu           sync.Mutex
+	cap           int // Максимальная ёмкость
+	tokens        float64
+	secRefillRate float64 // Сколько пополняется в секунду
+	lastRefilled  time.Time
+	mu            sync.Mutex
 }
 
 // NewTokenBucket создает новую структуру.
@@ -52,10 +52,10 @@ func NewTokenBucket(cap int, refillRate float64) *TokenBucket {
 	// А вот sync.Cond как раз обычно хранят в виде указателя. Потому что он создается методов NewCond который возвращает указатель.
 	// tb.cond = *sync.NewCond(&tb.mu) - это работает, но лучше так не делать, потому что будет копия.
 	tb := TokenBucket{
-		cap:          cap,
-		tokens:       float64(cap), // наполненное со старта
-		refillRate:   refillRate,
-		lastRefilled: time.Now(),
+		cap:           cap,
+		tokens:        float64(cap), // наполненное со старта
+		secRefillRate: refillRate,
+		lastRefilled:  time.Now(),
 	}
 
 	// решил обойтись без cond, так как его использование требует запуска goroutine для refill
@@ -71,6 +71,7 @@ func (tb *TokenBucket) Allow() bool {
 
 	tb.refill()
 
+	// разрешено, поэтому фиксируем это
 	if tb.tokens >= 1 {
 		tb.tokens -= 1
 		return true
@@ -87,13 +88,15 @@ func (tb *TokenBucket) Wait(ctx context.Context) {
 	defer tb.mu.Unlock()
 
 	for {
+		// проверка условия, аllow нельзя, он блокирующий
 		if tb.tokens >= 1 {
 			tb.tokens -= 1
 			return
 		}
 
-		waiting := time.Duration(((1 - tb.tokens) / tb.refillRate) * float64(time.Second))
+		waiting := time.Duration(((1 - tb.tokens) / tb.secRefillRate) * float64(time.Second))
 		timer := time.NewTimer(waiting)
+		// defer timer.Stop() - здесь нельзя, потому что цикл.
 
 		select {
 		case <-ctx.Done():
@@ -101,6 +104,8 @@ func (tb *TokenBucket) Wait(ctx context.Context) {
 			return
 		case <-timer.C:
 			tb.refill()
+			// таймер уже отработал, stop не обязателен
+			// timer.Stop()
 		}
 	}
 }
@@ -108,6 +113,6 @@ func (tb *TokenBucket) Wait(ctx context.Context) {
 func (tb *TokenBucket) refill() {
 	now := time.Now()
 	elapsed := now.Sub(tb.lastRefilled).Seconds()
-	tb.tokens = math.Min(float64(tb.cap), tb.tokens+tb.refillRate*elapsed)
+	tb.tokens = math.Min(float64(tb.cap), tb.tokens+tb.secRefillRate*elapsed)
 	tb.lastRefilled = now
 }

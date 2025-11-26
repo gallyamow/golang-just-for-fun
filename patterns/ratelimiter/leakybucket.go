@@ -1,6 +1,7 @@
 package ratelimiter
 
 import (
+	"context"
 	"math"
 	"sync"
 	"time"
@@ -9,7 +10,7 @@ import (
 // LeakyBucket - протекающее ведро.
 //
 // Что делает:
-// Она ограничивает скорость обработки (refillRate), а не количество конкурентных задач, и отбрасывает запросы, если «ведро» переполнено.
+// Она ограничивает скорость обработки (secRefillRate), а не количество конкурентных задач, и отбрасывает запросы, если «ведро» переполнено.
 // Сглаживает трафик: Поскольку обработка идёт фиксированным темпом.
 // Отбрасывает избыток: Если запросы приходят быстрее, чем протекают.
 // Простая и детерминированная модель: В отличие от tokenbucket, всплески не пропускаются.
@@ -44,7 +45,37 @@ func (lb *LeakyBucket) Allow() bool {
 	defer lb.mu.Unlock()
 
 	lb.leak()
-	return lb.current < lb.cap
+
+	// разрешено, поэтому фиксируем это
+	if lb.current < lb.cap {
+		lb.current++
+		return true
+	}
+
+	return false
+}
+
+func (lb *LeakyBucket) Wait(ctx context.Context) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	for {
+		// проверка условия, аllow нельзя, он блокирующий
+		if lb.current < lb.cap {
+			lb.current++
+			return
+		}
+
+		timer := time.NewTimer(lb.leakInterval)
+
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+			lb.leak()
+		}
+	}
 }
 
 func (lb *LeakyBucket) leak() {
@@ -56,4 +87,5 @@ func (lb *LeakyBucket) leak() {
 	leaked := int(math.Floor(float64(elapsed / lb.leakInterval)))
 
 	lb.current = max(lb.current-leaked, 0)
+	lb.lastLeaked = time.Now()
 }
