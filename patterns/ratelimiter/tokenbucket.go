@@ -30,33 +30,32 @@ import (
 // Минусы:
 // Нужна память на токены и дату последнего добавления.
 type TokenBucket struct {
-	// Максимальная ёмкость
-	cap        int
-	tokens     float64
-	rate       float64 // в секунду
-	lastUpdate time.Time
-	mu         sync.Mutex
+	cap          int // Максимальная ёмкость
+	tokens       float64
+	refillRate   float64 // Сколько пополняется в секунду
+	lastRefilled time.Time
+	mu           sync.Mutex
 }
 
 // NewTokenBucket создает новую структуру.
 // @idiomatic: store mutex in struct
-func NewTokenBucket(cap int, rate float64) *TokenBucket {
-	// Вот так создать mutex и затем передать его при создании структуры нельзя. Получим ошибку:
+func NewTokenBucket(cap int, refillRate float64) *TokenBucket {
+	// Создать mutex и передать его при создании структуры нельзя. Получим ошибку:
 	// "Literal copies a lock value from 'mu': type 'sync.Mutex' is 'sync.Locker'"
 	// Потому что даже при этом производится копирование (а mutex нельзя копировать _noCopy).
 	// Решение:
 	// 1) хранить указатель на него
 	// 2) сначала создать структуру не указывая его, затем уже взять по ссылке из структур
 	// Обычно выбирают второй, то есть указатель на mutex редко хранят, так как структура небольшая.
-	// Плюс: это делает его полем структуры, вместо того чтобы он лежал где то в куче.
+	// Плюс: это делает его полем структуры, вместо того чтобы он лежал где-то в куче.
 	//
 	// А вот sync.Cond как раз обычно хранят в виде указателя. Потому что он создается методов NewCond который возвращает указатель.
 	// tb.cond = *sync.NewCond(&tb.mu) - это работает, но лучше так не делать, потому что будет копия.
 	tb := TokenBucket{
-		cap:        cap,
-		tokens:     float64(cap), // наполненное со старта
-		rate:       rate,
-		lastUpdate: time.Now(),
+		cap:          cap,
+		tokens:       float64(cap), // наполненное со старта
+		refillRate:   refillRate,
+		lastRefilled: time.Now(),
 	}
 
 	// решил обойтись без cond, так как его использование требует запуска goroutine для refill
@@ -93,7 +92,7 @@ func (tb *TokenBucket) Wait(ctx context.Context) {
 			return
 		}
 
-		waiting := time.Duration(((1 - tb.tokens) / tb.rate) * float64(time.Second))
+		waiting := time.Duration(((1 - tb.tokens) / tb.refillRate) * float64(time.Second))
 		timer := time.NewTimer(waiting)
 
 		select {
@@ -108,7 +107,7 @@ func (tb *TokenBucket) Wait(ctx context.Context) {
 
 func (tb *TokenBucket) refill() {
 	now := time.Now()
-	elapsed := now.Sub(tb.lastUpdate).Seconds()
-	tb.tokens = math.Min(float64(tb.cap), tb.tokens+tb.rate*elapsed)
-	tb.lastUpdate = now
+	elapsed := now.Sub(tb.lastRefilled).Seconds()
+	tb.tokens = math.Min(float64(tb.cap), tb.tokens+tb.refillRate*elapsed)
+	tb.lastRefilled = now
 }
