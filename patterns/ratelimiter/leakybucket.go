@@ -2,7 +2,6 @@ package ratelimiter
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 )
@@ -14,6 +13,11 @@ import (
 // Сглаживает трафик: Поскольку обработка идёт фиксированным темпом.
 // Отбрасывает избыток: Если запросы приходят быстрее, чем протекают.
 // Простая и детерминированная модель: В отличие от tokenbucket, всплески не пропускаются.
+//
+// Пример:
+// Ведро вмещает 10 токенов, вычитается 1 токен в leakInterval.
+// Если пришло 5 запросов одновременно, они пройдут сразу, если в ведре есть 5 мест.
+// Если запросов больше, чем места — лишние либо ждут, либо отклоняются.
 //
 // Используется:
 // Гладкий поток данных, QoS, сетевой трафик
@@ -60,7 +64,7 @@ func (lb *LeakyBucket) Wait(ctx context.Context) {
 	defer lb.mu.Unlock()
 
 	for {
-		// проверка условия, аllow нельзя, он блокирующий
+		// проверка условия - Allow нельзя, он блокирующий
 		if lb.current < lb.cap {
 			lb.current++
 			return
@@ -84,8 +88,11 @@ func (lb *LeakyBucket) leak() {
 	}
 
 	elapsed := time.Now().Sub(lb.lastLeaked)
-	leaked := int(math.Floor(float64(elapsed / lb.leakInterval)))
+	leaked := int(elapsed / lb.leakInterval)
 
 	lb.current = max(lb.current-leaked, 0)
-	lb.lastLeaked = time.Now()
+
+	// Избегаем micro-drift, передвигаем дату ровно на столько сколько токенов утекло
+	// lb.lastLeaked = time.Now()
+	lb.lastLeaked = lb.lastLeaked.Add(time.Duration(leaked) * lb.leakInterval)
 }

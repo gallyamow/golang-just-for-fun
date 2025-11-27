@@ -35,6 +35,7 @@ type TokenBucket struct {
 	secRefillRate float64 // Сколько пополняется в секунду
 	lastRefilled  time.Time
 	mu            sync.Mutex
+	remainder     float64 // Остаток от целой части прибавленной в прошлый раз (micro-drift fix)
 }
 
 // NewTokenBucket создает новую структуру.
@@ -112,7 +113,27 @@ func (tb *TokenBucket) Wait(ctx context.Context) {
 
 func (tb *TokenBucket) refill() {
 	now := time.Now()
+
+	// В float64 не точно будут представлены маленькие длительности вида 3ms.
+	// Реально прошло 0.0378123 сек, округлилось до 0.0378125. На каждый refill +0.0000002 ошибки.
+	// За миллион операций это 0.2 секунды фальшивого времени → токены пополняются быстрее, чем нужно.
 	elapsed := now.Sub(tb.lastRefilled).Seconds()
-	tb.tokens = math.Min(float64(tb.cap), tb.tokens+tb.secRefillRate*elapsed)
-	tb.lastRefilled = now
+
+	newTokens := tb.secRefillRate * elapsed
+
+	// @idiomatic: use math.Modf
+	intPart, fracPart := math.Modf(newTokens + tb.remainder)
+
+	// прибавляем целую часть
+	tb.tokens = math.Min(float64(tb.cap), tb.tokens+intPart)
+	// Остаток от деления оставляем на следующий раз
+	tb.remainder = fracPart
+
+	// Если мы делаем такое присваивание, то если refill вызывается часто, например каждые 3–5 ms,
+	// elapsed будет очень маленьким (0.003s) накапливается micro-drift.
+	// Настоящее время, когда refill должен был произойти = прошлое + точное elapsed, а не просто now.
+	// Это micro-drift (микродрифт) bucket будет пополняться чуть быстрее или чуть медленнее, чем должен.
+	// tb.lastRefilled = now
+	// Поэтому надо делать так
+	tb.lastRefilled = tb.lastRefilled.Add(time.Duration(elapsed * float64(time.Second)))
 }

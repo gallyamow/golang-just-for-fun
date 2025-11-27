@@ -21,6 +21,11 @@ func TestTokenBucket(t *testing.T) {
 		r := NewTokenBucket(2, 1)
 		wait(t, r)
 	})
+
+	t.Run("concurrently_wait", func(t *testing.T) {
+		r := NewTokenBucket(2, 1)
+		concurrentlyWait(t, r)
+	})
 }
 
 func TestLeakyBucket(t *testing.T) {
@@ -37,6 +42,11 @@ func TestLeakyBucket(t *testing.T) {
 	t.Run("wait", func(t *testing.T) {
 		r := NewLeakyBucket(2, time.Second)
 		wait(t, r)
+	})
+
+	t.Run("concurrently_wait", func(t *testing.T) {
+		r := NewLeakyBucket(2, time.Second)
+		concurrentlyWait(t, r)
 	})
 }
 
@@ -89,3 +99,35 @@ func cancelable(t *testing.T, r RateLimiter) {
 		t.Log("expected")
 	}
 }
+
+func concurrentlyWait(t *testing.T, r RateLimiter) {
+	for i := 0; i < 10; i++ {
+		go r.Wait(t.Context())
+	}
+
+	select {
+	case <-time.After(10 * time.Millisecond):
+		t.Log("expected")
+	}
+}
+
+//
+//func microDrift(t *testing.T) {
+//	rate := 5.0
+//	capacity := 50
+//	tb := NewTokenBucket(capacity, rate)
+//
+//	// много раз вызываем refill
+//	for i := 0; i < 10000; i++ {
+//		tb.refill()
+//	}
+//
+//	// прошло ~10 сек
+//	expected := rate * 10
+//
+//	actual := tb.tokens
+//	if math.Abs(actual-expected) > 0.001 {
+//		t.Fatalf("drift detected: expected=%.6f actual=%.6f diff=%.6f",
+//			expected, actual, actual-expected)
+//	}
+//}
