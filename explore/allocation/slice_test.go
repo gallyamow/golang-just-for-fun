@@ -66,6 +66,7 @@ func TestSlices(t *testing.T) {
 			t.Fatalf("want array was not be reallocated")
 		}
 
+		// для если не превышаем текущий cap, то массив остается тем же самым
 		if cap(sl1) != 10 || cap(sl2) != 10 {
 			t.Fatalf("want both cap 10, got %d and %d", cap(sl1), cap(sl2))
 		}
@@ -94,8 +95,43 @@ func TestSlices(t *testing.T) {
 			t.Fatalf("want array be reallocated")
 		}
 
+		// для если превышаем текущий cap, то для второго массив остается тем же самым, а для первого - создается новый
 		if cap(sl1) < 1000 || cap(sl2) != 10 {
 			t.Fatalf("want both cap > 1000 and 10, got %d and %d", cap(sl1), cap(sl2))
+		}
+	})
+
+	t.Run("append lots elements without assigning result", func(t *testing.T) {
+		sl1 := make([]int, 3, 10)
+		for i := range 3 {
+			sl1[i] = i
+		}
+		sl2 := sl1[:]
+
+		p1 := &sl1[0]
+		p2 := &sl2[0]
+
+		if p1 != p2 {
+			t.Fatalf("want equal pointers")
+		}
+
+		appendElements(sl1, 1000)
+
+		p1After := &sl1[0]
+		p2After := &sl2[0]
+
+		if p1After != p2After {
+			t.Fatalf("want array was not be reallocated")
+		}
+
+		// даже если мы превышаем текущий cap, то массив остается тем же самым, потому что:
+		// - мы передаем в appendElement копию структуры
+		// - происходит reallocation
+		// - но именно у копии структуры меняется указатель на backing array
+		// - снаружи изменений нет, внешний slice продолжает указывать на тот же backing array
+		//
+		if cap(sl1) != 10 || cap(sl2) != 10 {
+			t.Fatalf("want both cap 10, got %d and %d", cap(sl1), cap(sl2))
 		}
 	})
 }
