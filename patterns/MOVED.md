@@ -1,0 +1,1 @@
+moved to https://github.com/gallyamow/go-patterns
