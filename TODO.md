@@ -5,3 +5,4 @@ interface _
 init funct
 working with time.*
 fun SyncCond
+from kafka => to rabbit
