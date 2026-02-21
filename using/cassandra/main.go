@@ -61,6 +61,14 @@ import (
 // Для ключей можно использовать
 // UUID - идеален для partition key: равномерное распределение (не будет hot partitions), максимум масштабируемости
 // TIMEUUID - содержит timestampt, естественная сортировка, можно делать range запросы range-запросы по времени event_time > maxTimeuuid('2025-01-01')
+//
+// Что такое SSTable: Sorted String Table — это файл на диске, с:
+// immutable - один раз записывается (поэтому append-only), нет races, нет random writes, нет update in-place
+// sorted - позволяет делать range scan, эффективно использовать index, быстро искать partition key
+// lock-free
+//
+// Со временем таких файлов становится много, поэтому они сливаются, делается compaction.
+// Итого: Фишка SSTable — в immutable + sorted структуре, которая превращает хаотичные записи в быстрый append-only поток и перекладывает сложность на compaction.
 func main() {
 	cluster := gocql.NewCluster("localhost")
 	cluster.Keyspace = "demo"
