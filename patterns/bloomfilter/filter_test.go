@@ -11,7 +11,7 @@ func TestBloomFilter(t *testing.T) {
 
 		for i := 0; i < 25; i++ {
 			key := fmt.Sprintf("key-%d", i)
-			bf.Add(key)
+			_ = bf.Add(key)
 		}
 
 		for i := 0; i < 25; i++ {
@@ -27,7 +27,7 @@ func TestBloomFilter(t *testing.T) {
 
 		for i := 0; i < 25; i++ {
 			key := fmt.Sprintf("key-%d", i)
-			bf.Add(key)
+			_ = bf.Add(key)
 		}
 
 		for i := 0; i < 25; i++ {
