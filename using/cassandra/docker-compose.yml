@@ -1,25 +1,70 @@
 version: "3.9"
 
 # import initial queries
-# docker exec -i cassandra cqlsh < init.cql
+# docker exec -i cassandra-dc1-1 cqlsh < init.cql
+#
+# проверка dc
+# docker exec -it cassandra-dc1-1 nodetool status
 
 services:
-  cassandra:
+  cassandra-dc1-1:
     image: cassandra:4.1
-    container_name: cassandra
+    container_name: cassandra-dc1-1
+    hostname: cassandra-dc1-1
     ports:
       - "9042:9042"
     environment:
       CASSANDRA_CLUSTER_NAME: "dev-cluster"
-      CASSANDRA_DC: "dc1"
-      CASSANDRA_RACK: "rack1"
+      CASSANDRA_DC: "dc1" # data center
+      CASSANDRA_RACK: "rack1" # rack - стойка внутри dc
+      # адреса нод, через которые новая нода “находит” кластер при старте.
+      # В dev достаточно одной seed-ноды, в prod обычно 2–3 seed-ноды.
+      CASSANDRA_SEEDS: "cassandra-dc1-1,cassandra-dc2-1"
     volumes:
-      - cassandra_data:/var/lib/cassandra
-    healthcheck:
-      test: [ "CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES' || exit 1" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      - dc1_1_data:/var/lib/cassandra
+
+  cassandra-dc1-2:
+    image: cassandra:4.1
+    container_name: cassandra-dc1-2
+    hostname: cassandra-dc1-2
+    environment:
+      CASSANDRA_CLUSTER_NAME: "dev-cluster"
+      CASSANDRA_DC: "dc1"
+      CASSANDRA_RACK: "rack2"
+      CASSANDRA_SEEDS: "cassandra-dc1-1,cassandra-dc2-1"
+    depends_on:
+      - cassandra-dc1-1
+    volumes:
+      - dc1_2_data:/var/lib/cassandra
+
+  cassandra-dc2-1:
+    image: cassandra:4.1
+    container_name: cassandra-dc2-1
+    hostname: cassandra-dc2-1
+    environment:
+      CASSANDRA_CLUSTER_NAME: "dev-cluster"
+      CASSANDRA_DC: "dc2"
+      CASSANDRA_RACK: "rack1"
+      CASSANDRA_SEEDS: "cassandra-dc1-1,cassandra-dc2-1"
+    volumes:
+      - dc2_1_data:/var/lib/cassandra
+
+  cassandra-dc2-2:
+    image: cassandra:4.1
+    container_name: cassandra-dc2-2
+    hostname: cassandra-dc2-2
+    environment:
+      CASSANDRA_CLUSTER_NAME: "dev-cluster"
+      CASSANDRA_DC: "dc2"
+      CASSANDRA_RACK: "rack2"
+      CASSANDRA_SEEDS: "cassandra-dc1-1,cassandra-dc2-1"
+    depends_on:
+      - cassandra-dc2-1
+    volumes:
+      - dc2_2_data:/var/lib/cassandra
 
 volumes:
-  cassandra_data:
+  dc1_1_data:
+  dc1_2_data:
+  dc2_1_data:
+  dc2_2_data:

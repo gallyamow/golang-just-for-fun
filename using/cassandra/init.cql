@@ -6,18 +6,25 @@
 --  - Набор таблиц
 --
 -- Есть параметр durable_writes = true, означает сначала в commit log. Тогда данные не теряются при падении.
+DROP KEYSPACE IF EXISTS demo;
 CREATE KEYSPACE IF NOT EXISTS demo
     -- На prod почти всегда: NetworkTopologyStrategy + RF ≥ 3
+    // При multi-dc:
+    // Write: пишутся в локальный DC и асинхронно реплицируются в другие DC
+    // Read: по умолчанию из локального DC
     WITH replication =
         {
-            'class': 'SimpleStrategy', -- для тестовых целей
-            'replication_factor': 1 -- в тестовых целях rf=1
+            'class': 'NetworkTopologyStrategy', -- для тестовых целей
+            'replication_factor': 1, -- в тестовых целях rf=1
+            // названия взял из вывода nodetool status
+            'datacenter1': 2,
+            'datacenter2': 2
             };
 
 -- Благодаря настройкам primary key и clustering order:
 -- Такая таблица позволяет быстро взять последние события пользователя без сортировки и без скана.
 --
--- Вот такие запросы будут быстрымиЖ
+-- Вот такие запросы будут быстрыми:
 -- 1) SELECT * -- последние события:
 -- FROM demo.user_events
 -- WHERE user_id = ?;

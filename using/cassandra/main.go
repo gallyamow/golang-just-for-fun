@@ -70,10 +70,26 @@ import (
 // Со временем таких файлов становится много, поэтому они сливаются, делается compaction.
 // Итого: Фишка SSTable — в immutable + sorted структуре, которая превращает хаотичные записи в быстрый append-only поток и перекладывает сложность на compaction.
 func main() {
-	cluster := gocql.NewCluster("localhost")
+	// Здесь перечисляем хосты локального dc
+	cluster := gocql.NewCluster(
+		// "cassandra-dc1-1", "cassandra-dc1-2",
+		"localhost", // на dev-норм, остальные хосты узнаем сами
+	)
 	cluster.Keyspace = "demo"
-	cluster.Consistency = gocql.Quorum
+
+	// Consistency - настраивается на уровне клиента
+	// LOCAL_ONE	1 реплика в local DC
+	// LOCAL_QUORUM	кворум в local DC
+	// QUORUM	кворум по всем DC
+	// EACH_QUORUM	кворум в каждом DC
+	cluster.Consistency = gocql.LocalQuorum // кворум в пределах локального dc
 	cluster.Timeout = 10 * time.Second
+
+	// Так указываем локальный dc.
+	// Local DC — это тот CASSANDRA_DC, с которым клиент Cassandra должен работать напрямую
+	cluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(
+		gocql.DCAwareRoundRobinPolicy("dc1"),
+	)
 
 	session, err := cluster.CreateSession()
 	if err != nil {
